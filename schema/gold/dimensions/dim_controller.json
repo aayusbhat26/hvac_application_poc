@@ -1,0 +1,14 @@
+{
+  "table": "dim_controller",
+  "layer": "gold",
+  "grain": "one row per controller version (SCD2)",
+  "columns": [
+    { "name": "controller_key", "type": "bigint", "key": "PK" },
+    { "name": "controller_id", "type": "string", "key": "natural key" },
+    { "name": "controller_name", "type": "string" },
+    { "name": "plant_key", "type": "bigint", "key": "FK -> dim_plant" },
+    { "name": "effective_from", "type": "timestamp" },
+    { "name": "effective_to", "type": "timestamp", "nullable": true },
+    { "name": "is_current", "type": "boolean" }
+  ]
+}

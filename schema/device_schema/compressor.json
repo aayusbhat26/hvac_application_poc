@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "eventId": "uuid",
+  "timestamp": "ISO8601",
+  "dataQuality": "GOOD | PARTIAL | STALE",
+  "company": { "companyId": "string", "companyName": "string" },
+  "plant": {
+    "plantId": "string", "plantName": "string",
+    "building": "string", "floor": "string", "zone": "string",
+    "latitude": "number", "longitude": "number"
+  },
+  "controller": { "controllerId": "string", "controllerName": "string" },
+  "hvacMachine": { "hvacMachineId": "string", "hvacMachineName": "string" },
+  "component": {
+    "componentId": "string", "componentType": "compressor",
+    "componentName": "string", "manufacturer": "string",
+    "model": "string", "serialNumber": "string", "installationDate": "date"
+  },
+  "health": {
+    "healthStatus": "Healthy | Warning | Critical",
+    "maintenanceRequired": "boolean",
+    "lastMaintenanceDate": "date",
+    "activeFaultCode": "string (controlled vocabulary)",
+    "maintenanceFlag": "boolean"
+  },
+  "telemetry": {
+    "compressorStatus": "ON | OFF",
+    "runHours": "number",
+    "startStopCount": "integer",
+    "suctionPressure_kPa": "number",
+    "dischargePressure_kPa": "number",
+    "oilPressure_kPa": "number",
+    "suctionTemperature_C": "number",
+    "dischargeTemperature_C": "number",
+    "oilTemperature_C": "number",
+    "motorWindingTemperature_C": "number",
+    "voltage_V": "number",
+    "current_A": "number",
+    "powerConsumption_kW": "number",
+    "frequency_Hz": "number",
+    "powerFactor": "number",
+    "rpm": "integer",
+    "vibration_mm_s": "number",
+    "bearingTemperature_C": "number",
+    "eer": "number",
+    "cop": "number"
+  }
+}

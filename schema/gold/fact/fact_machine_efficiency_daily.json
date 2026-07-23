@@ -1,0 +1,16 @@
+{
+  "table": "fact_machine_efficiency_daily",
+  "layer": "gold",
+  "grain": "one row per HVAC machine per day",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
+    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "total_power_consumption_kw", "type": "double", "note": "sum across all 4 components" },
+    { "name": "cooling_capacity_tr", "type": "double" },
+    { "name": "overall_cop", "type": "double" },
+    { "name": "overall_eer", "type": "double" },
+    { "name": "energy_per_ton_kw", "type": "double" }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "table": "fact_maintenance_history",
+  "layer": "gold",
+  "grain": "one row per maintenance action",
+  "columns": [
+    { "name": "maintenance_id", "type": "string", "key": "PK" },
+    { "name": "component_key", "type": "bigint", "key": "FK" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
+    { "name": "maintenance_date", "type": "date" },
+    { "name": "maintenance_type", "type": "string", "note": "SCHEDULED | CORRECTIVE | PREDICTIVE" },
+    { "name": "performed_by", "type": "string" },
+    { "name": "notes", "type": "string" },
+    { "name": "next_maintenance_due", "type": "date" }
+  ]
+}

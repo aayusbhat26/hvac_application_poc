@@ -1,0 +1,19 @@
+{
+  "table": "dim_component",
+  "layer": "gold",
+  "grain": "one row per component version (SCD2)",
+  "columns": [
+    { "name": "component_key", "type": "bigint", "key": "PK" },
+    { "name": "component_id", "type": "string", "key": "natural key" },
+    { "name": "component_type", "type": "string" },
+    { "name": "component_name", "type": "string" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "manufacturer", "type": "string" },
+    { "name": "model", "type": "string" },
+    { "name": "serial_number", "type": "string" },
+    { "name": "installation_date", "type": "date" },
+    { "name": "effective_from", "type": "timestamp" },
+    { "name": "effective_to", "type": "timestamp", "nullable": true },
+    { "name": "is_current", "type": "boolean" }
+  ]
+}

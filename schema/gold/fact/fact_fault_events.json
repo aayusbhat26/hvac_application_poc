@@ -1,0 +1,19 @@
+{
+  "table": "fact_fault_events",
+  "layer": "gold",
+  "grain": "one row per fault occurrence, start to resolution",
+  "columns": [
+    { "name": "fault_event_id", "type": "string", "key": "PK" },
+    { "name": "component_key", "type": "bigint", "key": "FK" },
+    { "name": "fault_code_key", "type": "bigint", "key": "FK" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
+    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "start_timestamp", "type": "timestamp" },
+    { "name": "end_timestamp", "type": "timestamp", "nullable": true },
+    { "name": "duration_hours", "type": "double" },
+    { "name": "consecutive_days_reproduced", "type": "int" },
+    { "name": "report_generated", "type": "boolean" },
+    { "name": "report_id", "type": "string", "nullable": true },
+    { "name": "status", "type": "string", "note": "OPEN | CLOSED" }
+  ]
+}

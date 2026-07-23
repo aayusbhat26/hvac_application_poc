@@ -1,0 +1,13 @@
+{
+  "table": "dim_company",
+  "layer": "gold",
+  "grain": "one row per company version (SCD2)",
+  "columns": [
+    { "name": "company_key", "type": "bigint", "key": "PK" },
+    { "name": "company_id", "type": "string", "key": "natural key" },
+    { "name": "company_name", "type": "string" },
+    { "name": "effective_from", "type": "timestamp" },
+    { "name": "effective_to", "type": "timestamp", "nullable": true },
+    { "name": "is_current", "type": "boolean" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "table": "dim_hvac_machine",
+  "layer": "gold",
+  "grain": "one row per HVAC machine version (SCD2)",
+  "columns": [
+    { "name": "hvac_machine_key", "type": "bigint", "key": "PK" },
+    { "name": "hvac_machine_id", "type": "string", "key": "natural key" },
+    { "name": "hvac_machine_name", "type": "string" },
+    { "name": "controller_key", "type": "bigint", "key": "FK -> dim_controller" },
+    { "name": "effective_from", "type": "timestamp" },
+    { "name": "effective_to", "type": "timestamp", "nullable": true },
+    { "name": "is_current", "type": "boolean" }
+  ]
+}

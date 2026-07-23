@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "eventId": "uuid",
+  "timestamp": "ISO8601",
+  "dataQuality": "GOOD | PARTIAL | STALE",
+  "company": { "companyId": "string", "companyName": "string" },
+  "plant": {
+    "plantId": "string", "plantName": "string",
+    "building": "string", "floor": "string", "zone": "string",
+    "latitude": "number", "longitude": "number"
+  },
+  "controller": { "controllerId": "string", "controllerName": "string" },
+  "hvacMachine": { "hvacMachineId": "string", "hvacMachineName": "string" },
+  "component": {
+    "componentId": "string", "componentType": "expansionValve",
+    "componentName": "string", "manufacturer": "string",
+    "model": "string", "serialNumber": "string", "installationDate": "date"
+  },
+  "health": {
+    "healthStatus": "Healthy | Warning | Critical",
+    "maintenanceRequired": "boolean",
+    "lastMaintenanceDate": "date",
+    "activeFaultCode": "string (controlled vocabulary)",
+    "maintenanceFlag": "boolean"
+  },
+  "telemetry": {
+    "valveStatus": "ACTIVE | INACTIVE",
+    "runHours": "number",
+    "valveOpening_pct": "number",
+    "valveStepPosition": "integer",
+    "liquidLineTemperature_C": "number",
+    "evaporatorOutletTemperature_C": "number",
+    "superheat_C": "number",
+    "subcooling_C": "number",
+    "inletPressure_kPa": "number",
+    "outletPressure_kPa": "number",
+    "pressureDrop_kPa": "number",
+    "refrigerantFlowRate_kg_min": "number",
+    "actuatorVoltage_V": "number",
+    "actuatorCurrent_A": "number",
+    "powerConsumption_W": "number",
+    "targetSuperheat_C": "number",
+    "controlMode": "AUTO | MANUAL",
+    "responseTime_ms": "integer"
+  }
+}

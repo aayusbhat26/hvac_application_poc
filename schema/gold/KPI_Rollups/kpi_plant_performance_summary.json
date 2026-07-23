@@ -1,0 +1,16 @@
+{
+  "table": "kpi_plant_performance_summary",
+  "layer": "gold",
+  "grain": "one row per plant per reporting period",
+  "columns": [
+    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "period_start", "type": "date" },
+    { "name": "period_end", "type": "date" },
+    { "name": "avg_uptime_pct", "type": "double" },
+    { "name": "avg_health_score", "type": "double" },
+    { "name": "total_fault_events", "type": "int" },
+    { "name": "total_reports_generated", "type": "int" },
+    { "name": "avg_fleet_cop", "type": "double" },
+    { "name": "machines_count", "type": "int" }
+  ]
+}

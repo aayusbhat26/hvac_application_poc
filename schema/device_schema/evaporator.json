@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "eventId": "uuid",
+  "timestamp": "ISO8601",
+  "dataQuality": "GOOD | PARTIAL | STALE",
+  "company": { "companyId": "string", "companyName": "string" },
+  "plant": {
+    "plantId": "string", "plantName": "string",
+    "building": "string", "floor": "string", "zone": "string",
+    "latitude": "number", "longitude": "number"
+  },
+  "controller": { "controllerId": "string", "controllerName": "string" },
+  "hvacMachine": { "hvacMachineId": "string", "hvacMachineName": "string" },
+  "component": {
+    "componentId": "string", "componentType": "evaporator",
+    "componentName": "string", "manufacturer": "string",
+    "model": "string", "serialNumber": "string", "installationDate": "date"
+  },
+  "health": {
+    "healthStatus": "Healthy | Warning | Critical",
+    "maintenanceRequired": "boolean",
+    "lastMaintenanceDate": "date",
+    "activeFaultCode": "string (controlled vocabulary)",
+    "maintenanceFlag": "boolean"
+  },
+  "telemetry": {
+    "evaporatorStatus": "ON | OFF",
+    "runHours": "number",
+    "enteringChilledWaterTemperature_C": "number",
+    "leavingChilledWaterTemperature_C": "number",
+    "temperatureDifference_C": "number",
+    "evaporatorPressure_kPa": "number",
+    "waterFlowRate_GPM": "number",
+    "flowSwitchStatus": "OPEN | CLOSED",
+    "lwtSetpoint_C": "number",
+    "pumpControlMode": "AUTO | MANUAL",
+    "pumpRelay1Status": "ON | OFF",
+    "pumpRelay2Status": "ON | OFF",
+    "pumpPowerConsumption_kW": "number",
+    "pumpCurrent_A": "number",
+    "pumpFrequency_Hz": "number",
+    "coolingCapacity_TR": "number",
+    "heatTransferEfficiency_pct": "number"
+  }
+}

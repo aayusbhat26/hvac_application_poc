@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "eventId": "uuid",
+  "timestamp": "ISO8601",
+  "dataQuality": "GOOD | PARTIAL | STALE",
+  "company": { "companyId": "string", "companyName": "string" },
+  "plant": {
+    "plantId": "string", "plantName": "string",
+    "building": "string", "floor": "string", "zone": "string",
+    "latitude": "number", "longitude": "number"
+  },
+  "controller": { "controllerId": "string", "controllerName": "string" },
+  "hvacMachine": { "hvacMachineId": "string", "hvacMachineName": "string" },
+  "component": {
+    "componentId": "string", "componentType": "condenser",
+    "componentName": "string", "manufacturer": "string",
+    "model": "string", "serialNumber": "string", "installationDate": "date"
+  },
+  "health": {
+    "healthStatus": "Healthy | Warning | Critical",
+    "maintenanceRequired": "boolean",
+    "lastMaintenanceDate": "date",
+    "activeFaultCode": "string (controlled vocabulary)",
+    "maintenanceFlag": "boolean"
+  },
+  "telemetry": {
+    "condenserStatus": "ON | OFF",
+    "runHours": "number",
+    "condenserPressure_kPa": "number",
+    "pressureDrop_kPa": "number",
+    "waterInletTemperature_C": "number",
+    "waterOutletTemperature_C": "number",
+    "coolingTowerWaterTemperature_C": "number",
+    "ambientAirTemperature_C": "number",
+    "waterFlowRate_GPM": "number",
+    "waterValvePosition_pct": "number",
+    "fanStatus": "ON | OFF",
+    "fanSpeed_RPM": "number",
+    "fanCurrent_A": "number",
+    "fanPower_kW": "number",
+    "voltage_V": "number",
+    "frequency_Hz": "number",
+    "powerFactor": "number",
+    "powerConsumption_kW": "number",
+    "approachTemperature_C": "number",
+    "heatRejectionEfficiency_pct": "number"
+  }
+}

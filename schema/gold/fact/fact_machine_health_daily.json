@@ -1,0 +1,17 @@
+{
+  "table": "fact_machine_health_daily",
+  "layer": "gold",
+  "grain": "one row per HVAC machine per day",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
+    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "computed_health_score", "type": "double" },
+    { "name": "health_status_mode", "type": "string" },
+    { "name": "fault_count", "type": "int" },
+    { "name": "critical_fault_count", "type": "int" },
+    { "name": "maintenance_flag_any", "type": "boolean" },
+    { "name": "components_reporting", "type": "int" }
+  ]
+}

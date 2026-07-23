@@ -1,0 +1,26 @@
+{
+  "table": "fact_compressor_daily",
+  "layer": "gold",
+  "grain": "one row per compressor per day",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "component_key", "type": "bigint", "key": "FK" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
+    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "readings_count", "type": "int" },
+    { "name": "uptime_pct", "type": "double" },
+    { "name": "avg_power_consumption_kw", "type": "double" },
+    { "name": "max_power_consumption_kw", "type": "double" },
+    { "name": "avg_suction_pressure_kpa", "type": "double" },
+    { "name": "avg_discharge_pressure_kpa", "type": "double" },
+    { "name": "avg_vibration_mm_s", "type": "double" },
+    { "name": "max_vibration_mm_s", "type": "double" },
+    { "name": "avg_eer", "type": "double" },
+    { "name": "avg_cop", "type": "double" },
+    { "name": "run_hours_delta", "type": "double" },
+    { "name": "start_stop_count_delta", "type": "int" },
+    { "name": "fault_count", "type": "int" },
+    { "name": "critical_fault_count", "type": "int" }
+  ]
+}

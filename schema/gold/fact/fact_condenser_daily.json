@@ -1,0 +1,21 @@
+{
+  "table": "fact_condenser_daily",
+  "layer": "gold",
+  "grain": "one row per condenser per day",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "component_key", "type": "bigint", "key": "FK" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
+    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "readings_count", "type": "int" },
+    { "name": "uptime_pct", "type": "double" },
+    { "name": "avg_power_consumption_kw", "type": "double" },
+    { "name": "avg_fan_power_kw", "type": "double" },
+    { "name": "avg_water_flow_rate_gpm", "type": "double" },
+    { "name": "avg_approach_temperature_c", "type": "double" },
+    { "name": "avg_heat_rejection_efficiency_pct", "type": "double" },
+    { "name": "fault_count", "type": "int" },
+    { "name": "critical_fault_count", "type": "int" }
+  ]
+}

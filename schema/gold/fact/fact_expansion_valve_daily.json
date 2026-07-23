@@ -1,0 +1,21 @@
+{
+  "table": "fact_expansion_valve_daily",
+  "layer": "gold",
+  "grain": "one row per expansion valve per day",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "component_key", "type": "bigint", "key": "FK" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
+    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "readings_count", "type": "int" },
+    { "name": "uptime_pct", "type": "double" },
+    { "name": "avg_valve_opening_pct", "type": "double" },
+    { "name": "avg_superheat_c", "type": "double" },
+    { "name": "avg_superheat_deviation_c", "type": "double" },
+    { "name": "avg_subcooling_c", "type": "double" },
+    { "name": "avg_response_time_ms", "type": "double" },
+    { "name": "fault_count", "type": "int" },
+    { "name": "critical_fault_count", "type": "int" }
+  ]
+}
