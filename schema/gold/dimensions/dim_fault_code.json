@@ -6,7 +6,7 @@
     { "name": "fault_code_key", "type": "bigint", "key": "PK" },
     { "name": "fault_code", "type": "string", "key": "natural key" },
     { "name": "component_type", "type": "string" },
-    { "name": "fault_description", "type": "string" },
+    { "name": "fault_description", "type": "string" }, 
     { "name": "severity", "type": "string", "note": "LOW | MEDIUM | HIGH | CRITICAL" },
     { "name": "is_active", "type": "boolean" }
   ]

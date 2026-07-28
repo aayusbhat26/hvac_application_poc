@@ -18,6 +18,7 @@
     { "name": "fault_code_key", "type": "bigint", "key": "FK -> dim_fault_code, nullable" },
     { "name": "maintenance_flag", "type": "boolean" },
     { "name": "silver_loaded_at", "type": "timestamp" },
+    
     { "name": "compressor_status", "type": "string" },
     { "name": "run_hours", "type": "double" },
     { "name": "start_stop_count", "type": "int" },

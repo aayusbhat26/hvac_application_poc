@@ -1,0 +1,219 @@
+if we use dynamodb in future, then silver layer's records 
+
+condenser.json
+{
+  "table": "silver_condenser_events",
+  "layer": "silver",
+  "partitionBy": ["event_date", "component_type"],
+  "columns": [
+    { "name": "event_id", "type": "string", "key": "PK (post-dedup)" },
+    { "name": "event_timestamp", "type": "timestamp" },
+    { "name": "event_date", "type": "date" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company" },
+    { "name": "plant_key", "type": "bigint", "key": "FK -> dim_plant" },
+    { "name": "controller_key", "type": "bigint", "key": "FK -> dim_controller" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "component_type", "type": "string", "note": "denormalized for partition pruning" },
+    { "name": "data_quality", "type": "string" },
+    { "name": "is_valid", "type": "boolean", "note": "finalized here; staging only flagged" },
+    { "name": "health_status", "type": "string" },
+    { "name": "fault_code_key", "type": "bigint", "key": "FK -> dim_fault_code, nullable" },
+    { "name": "maintenance_flag", "type": "boolean" },
+    { "name": "silver_loaded_at", "type": "timestamp" },
+    
+    { "name": "condenser_status", "type": "string" },
+    { "name": "run_hours", "type": "double" },
+    { "name": "condenser_pressure_kpa", "type": "double" },
+    { "name": "pressure_drop_kpa", "type": "double" },
+    { "name": "water_inlet_temperature_c", "type": "double" },
+    { "name": "water_outlet_temperature_c", "type": "double" },
+    { "name": "cooling_tower_water_temperature_c", "type": "double" },
+    { "name": "ambient_air_temperature_c", "type": "double" },
+    { "name": "water_flow_rate_gpm", "type": "double" },
+    { "name": "water_valve_position_pct", "type": "double" },
+    { "name": "fan_status", "type": "string" },
+    { "name": "fan_speed_rpm", "type": "double" },
+    { "name": "fan_current_a", "type": "double" },
+    { "name": "fan_power_kw", "type": "double" },
+    { "name": "voltage_v", "type": "double" },
+    { "name": "frequency_hz", "type": "double" },
+    { "name": "power_factor", "type": "double" },
+    { "name": "power_consumption_kw", "type": "double" },
+    { "name": "approach_temperature_c", "type": "double" },
+    { "name": "heat_rejection_efficiency_pct", "type": "double" },
+    
+    { "name": "ahp_inference_degradation_number", "type": "double", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_confidence_level", "type": "int", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_impact_forecast", "type": "string", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_cond_degradation_factor_flag", "type": "int", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_cond_approach_flag", "type": "int", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_cond_water_dt_flag", "type": "int", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_evp_apprch_flag", "type": "int", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_cond_ent_wtr_flag", "type": "int", "note": "Parsed from DynamoDB value string" },
+    { "name": "ahp_inference_cond_leav_wtr_flag", "type": "int", "note": "Parsed from DynamoDB value string" },
+
+    { "name": "is_running", "type": "boolean", "derivedFrom": "condenser_status == 'ON'" },
+    { "name": "is_fan_running", "type": "boolean", "derivedFrom": "fan_status == 'ON'" },
+    { "name": "heat_rejection_kw", "type": "double", "derivedFrom": "water_flow_rate_gpm x (water_outlet_temperature_c - water_inlet_temperature_c) x constant" },
+    { "name": "is_faulted", "type": "boolean", "derivedFrom": "fault_code_key is not null" }
+  ]
+}
+
+
+evaporator.json
+
+{
+  "table": "silver_evaporator_events",
+  "layer": "silver",
+  "partitionBy": ["event_date", "component_type"],
+  "columns": [
+    { "name": "event_id", "type": "string", "key": "PK (post-dedup)" },
+    { "name": "event_timestamp", "type": "timestamp" },
+    { "name": "event_date", "type": "date" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company" },
+    { "name": "plant_key", "type": "bigint", "key": "FK -> dim_plant" },
+    { "name": "controller_key", "type": "bigint", "key": "FK -> dim_controller" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "component_type", "type": "string", "note": "denormalized for partition pruning" },
+    { "name": "data_quality", "type": "string" },
+    { "name": "is_valid", "type": "boolean", "note": "finalized here; staging only flagged" },
+    { "name": "health_status", "type": "string" },
+    { "name": "fault_code_key", "type": "bigint", "key": "FK -> dim_fault_code, nullable" },
+    { "name": "maintenance_flag", "type": "boolean" },
+    { "name": "silver_loaded_at", "type": "timestamp" },
+    
+    { "name": "evaporator_status", "type": "string" },
+    { "name": "run_hours", "type": "double" },
+    { "name": "entering_chilled_water_temperature_c", "type": "double" },
+    { "name": "leaving_chilled_water_temperature_c", "type": "double" },
+    { "name": "temperature_difference_c", "type": "double" },
+    { "name": "evaporator_pressure_kpa", "type": "double" },
+    { "name": "water_flow_rate_gpm", "type": "double" },
+    { "name": "flow_switch_status", "type": "string" },
+    { "name": "lwt_setpoint_c", "type": "double" },
+    { "name": "pump_control_mode", "type": "string" },
+    { "name": "pump_relay_1_status", "type": "string" },
+    { "name": "pump_relay_2_status", "type": "string" },
+    { "name": "pump_power_consumption_kw", "type": "double" },
+    { "name": "pump_current_a", "type": "double" },
+    { "name": "pump_frequency_hz", "type": "double" },
+    { "name": "cooling_capacity_tr", "type": "double" },
+    { "name": "heat_transfer_efficiency_pct", "type": "double" },
+
+    { "name": "ahp_inference_degradation_number", "type": "double", "note": "Parsed from DynamoDB" },
+    { "name": "ahp_inference_confidence_level", "type": "int", "note": "Parsed from DynamoDB" },
+    { "name": "ahp_inference_impact_forecast", "type": "string", "note": "Parsed from DynamoDB" },
+
+    { "name": "is_pump_running", "type": "boolean", "derivedFrom": "pump_relay_1_status == 'ON' or pump_relay_2_status == 'ON'" },
+    { "name": "cooling_load_kw", "type": "double", "derivedFrom": "water_flow_rate_gpm x temperature_difference_c x constant" },
+    { "name": "setpoint_deviation_c", "type": "double", "derivedFrom": "leaving_chilled_water_temperature_c - lwt_setpoint_c" },
+    { "name": "is_faulted", "type": "boolean", "derivedFrom": "fault_code_key is not null" }
+  ]
+}
+
+compressor.json
+{
+  "table": "silver_compressor_events",
+  "layer": "silver",
+  "partitionBy": ["event_date", "component_type"],
+  "columns": [
+    { "name": "event_id", "type": "string", "key": "PK (post-dedup)" },
+    { "name": "event_timestamp", "type": "timestamp" },
+    { "name": "event_date", "type": "date" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company" },
+    { "name": "plant_key", "type": "bigint", "key": "FK -> dim_plant" },
+    { "name": "controller_key", "type": "bigint", "key": "FK -> dim_controller" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "component_type", "type": "string", "note": "denormalized for partition pruning" },
+    { "name": "data_quality", "type": "string" },
+    { "name": "is_valid", "type": "boolean", "note": "finalized here; staging only flagged" },
+    { "name": "health_status", "type": "string" },
+    { "name": "fault_code_key", "type": "bigint", "key": "FK -> dim_fault_code, nullable" },
+    { "name": "maintenance_flag", "type": "boolean" },
+    { "name": "silver_loaded_at", "type": "timestamp" },
+    
+    { "name": "compressor_status", "type": "string" },
+    { "name": "run_hours", "type": "double" },
+    { "name": "start_stop_count", "type": "int" },
+    { "name": "suction_pressure_kpa", "type": "double" },
+    { "name": "discharge_pressure_kpa", "type": "double" },
+    { "name": "oil_pressure_kpa", "type": "double" },
+    { "name": "suction_temperature_c", "type": "double" },
+    { "name": "discharge_temperature_c", "type": "double" },
+    { "name": "oil_temperature_c", "type": "double" },
+    { "name": "motor_winding_temperature_c", "type": "double" },
+    { "name": "voltage_v", "type": "double" },
+    { "name": "current_a", "type": "double" },
+    { "name": "power_consumption_kw", "type": "double" },
+    { "name": "frequency_hz", "type": "double" },
+    { "name": "power_factor", "type": "double" },
+    { "name": "rpm", "type": "int" },
+    { "name": "vibration_mm_s", "type": "double" },
+    { "name": "bearing_temperature_c", "type": "double" },
+    { "name": "eer", "type": "double" },
+    { "name": "cop", "type": "double" },
+
+    { "name": "ahp_inference_degradation_number", "type": "double", "note": "Parsed from DynamoDB" },
+    { "name": "ahp_inference_confidence_level", "type": "int", "note": "Parsed from DynamoDB" },
+    { "name": "ahp_inference_impact_forecast", "type": "string", "note": "Parsed from DynamoDB" },
+
+    { "name": "is_running", "type": "boolean", "derivedFrom": "compressor_status == 'ON'" },
+    { "name": "pressure_ratio", "type": "double", "derivedFrom": "discharge_pressure_kpa / suction_pressure_kpa" },
+    { "name": "temperature_rise_c", "type": "double", "derivedFrom": "discharge_temperature_c - suction_temperature_c" },
+    { "name": "is_faulted", "type": "boolean", "derivedFrom": "fault_code_key is not null" }
+  ]
+}
+
+expansion_valve.json
+{
+  "table": "silver_expansion_valve_events",
+  "layer": "silver",
+  "partitionBy": ["event_date", "component_type"],
+  "columns": [
+    { "name": "event_id", "type": "string", "key": "PK (post-dedup)" },
+    { "name": "event_timestamp", "type": "timestamp" },
+    { "name": "event_date", "type": "date" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company" },
+    { "name": "plant_key", "type": "bigint", "key": "FK -> dim_plant" },
+    { "name": "controller_key", "type": "bigint", "key": "FK -> dim_controller" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "component_type", "type": "string", "note": "denormalized for partition pruning" },
+    { "name": "data_quality", "type": "string" },
+    { "name": "is_valid", "type": "boolean", "note": "finalized here; staging only flagged" },
+    { "name": "health_status", "type": "string" },
+    { "name": "fault_code_key", "type": "bigint", "key": "FK -> dim_fault_code, nullable" },
+    { "name": "maintenance_flag", "type": "boolean" },
+    { "name": "silver_loaded_at", "type": "timestamp" },
+    
+    { "name": "valve_status", "type": "string" },
+    { "name": "run_hours", "type": "double" },
+    { "name": "valve_opening_pct", "type": "double" },
+    { "name": "valve_step_position", "type": "int" },
+    { "name": "liquid_line_temperature_c", "type": "double" },
+    { "name": "evaporator_outlet_temperature_c", "type": "double" },
+    { "name": "superheat_c", "type": "double" },
+    { "name": "subcooling_c", "type": "double" },
+    { "name": "inlet_pressure_kpa", "type": "double" },
+    { "name": "outlet_pressure_kpa", "type": "double" },
+    { "name": "pressure_drop_kpa", "type": "double" },
+    { "name": "refrigerant_flow_rate_kg_min", "type": "double" },
+    { "name": "actuator_voltage_v", "type": "double" },
+    { "name": "actuator_current_a", "type": "double" },
+    { "name": "power_consumption_w", "type": "double" },
+    { "name": "target_superheat_c", "type": "double" },
+    { "name": "control_mode", "type": "string" },
+    { "name": "response_time_ms", "type": "int" },
+
+    { "name": "ahp_inference_degradation_number", "type": "double", "note": "Parsed from DynamoDB" },
+    { "name": "ahp_inference_confidence_level", "type": "int", "note": "Parsed from DynamoDB" },
+    { "name": "ahp_inference_impact_forecast", "type": "string", "note": "Parsed from DynamoDB" },
+
+    { "name": "is_active", "type": "boolean", "derivedFrom": "valve_status == 'ACTIVE'" },
+    { "name": "superheat_deviation_c", "type": "double", "derivedFrom": "superheat_c - target_superheat_c" },
+    { "name": "is_faulted", "type": "boolean", "derivedFrom": "fault_code_key is not null" }
+  ]
+}

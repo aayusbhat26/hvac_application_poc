@@ -18,6 +18,7 @@
     { "name": "fault_code_key", "type": "bigint", "key": "FK -> dim_fault_code, nullable" },
     { "name": "maintenance_flag", "type": "boolean" },
     { "name": "silver_loaded_at", "type": "timestamp" },
+    
     { "name": "evaporator_status", "type": "string" },
     { "name": "run_hours", "type": "double" },
     { "name": "entering_chilled_water_temperature_c", "type": "double" },
