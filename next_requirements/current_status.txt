@@ -1,0 +1,61 @@
+hvac_application_poc/
+    ├── example_raw_data/ -- this contains the example raw data for one plant with different devices
+    │   ├── example_compressor/
+    │   │   └── example_raw_compressor.json
+    │   ├── example_condenser/
+    │   │   └── example_raw_condenser.json
+    │   ├── example_evaporator/
+    │   │   └── example_raw_evaporator.json
+    │   └── example_expansion_valve/
+    │       └── example_raw_expansion_vavle.json
+    ├── extras/
+    │   └── future.txt
+    ├── schema/ 
+    │   ├── device_schema/
+    │   │   ├── compressor.json
+    │   │   ├── condenser.json
+    │   │   ├── evaporator.json
+    │   │   └── expansion_valve.json
+    │   ├── gold/
+    │   │   ├── dimensions/
+    │   │   │   ├── dim_company.json
+    │   │   │   ├── dim_component.json
+    │   │   │   ├── dim_controller.json
+    │   │   │   ├── dim_fault_code.json
+    │   │   │   ├── dim_hvac_machine.json
+    │   │   │   └── dim_plant.json
+    │   │   ├── fact/
+    │   │   │   ├── fact_compressor_daily.json
+    │   │   │   ├── fact_condenser_daily.json
+    │   │   │   ├── fact_evaporator_daily.json
+    │   │   │   ├── fact_expansion_valve_daily.json
+    │   │   │   ├── fact_fault_events.json
+    │   │   │   ├── fact_machine_efficiency_daily.json
+    │   │   │   ├── fact_machine_health_daily.json
+    │   │   │   └── fact_maintenance_history.json
+    │   │   └── KPI_Rollups/
+    │   │       ├── kpi_plant_energy_daily.json
+    │   │       └── kpi_plant_performance_summary.json
+    │   ├── raw/
+    │   │   ├── compressor.json
+    │   │   ├── condenser.json
+    │   │   ├── evaporator.json
+    │   │   └── expansion_valve.json
+    │   ├── silver/
+    │   │   ├── compressor.json
+    │   │   ├── condenser.json
+    │   │   ├── evaporator.json
+    │   │   └── expansion_valve.json
+    │   └── staging/
+    │       ├── compressor.json
+    │       ├── condenser.json
+    │       ├── evaportor.json
+    │       └── expansion_valve.json
+    └── scripts/
+        └── generate_batch_data.py
+
+
+Requirements: 
+
+- UI desgin or wireframe - detailed logic
+    reason: Provide the data based on the things wireframe have 
