@@ -3,6 +3,10 @@ name: Data Generation and Upload Workflow
 on:
   workflow_dispatch:
     inputs:
+      start_date:
+        description: 'Start date (YYYY-MM-DD). Leave empty to auto-detect from watermark.'
+        required: false
+        default: ''
       days_to_generate:
         description: 'Number of days of data to generate'
         required: false
@@ -23,7 +27,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas deltalake pyarrow
+          pip install pandas deltalake pyarrow huggingface_hub
 
       - name: Install Hugging Face CLI (hf)
         run: |
@@ -33,12 +37,23 @@ jobs:
         run: |
           mkdir -p data/batch/raw
           mkdir -p data/batch/bronze
-          mkdir -p data/real\ time  # Creating empty real time folder as requested
+          mkdir -p data/real\ time
+
+      - name: Check Watermark
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -n "${{ github.event.inputs.start_date }}" ]; then
+            python scripts/manage_watermark.py --action check --input-date "${{ github.event.inputs.start_date }}"
+          else
+            python scripts/manage_watermark.py --action check
+          fi
 
       - name: Generate Raw JSON Data
         run: |
           python scripts/generate_batch_data.py \
             --output-dir data/batch/raw \
+            --start-date $TARGET_DATE \
             --days ${{ github.event.inputs.days_to_generate || '1' }}
 
       - name: Convert Raw JSON to Delta Format (Bronze)
@@ -46,6 +61,10 @@ jobs:
           python scripts/convert_to_delta.py \
             --input-dir data/batch/raw \
             --output-dir data/batch/bronze
+
+      - name: Update Watermark Locally
+        run: |
+          python scripts/manage_watermark.py --action update --date $TARGET_DATE
 
       - name: Upload to Hugging Face Bucket
         env:
