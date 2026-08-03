@@ -16,11 +16,17 @@ actually dump telemetry in real-world systems:
     - Includes real-world quirks: occasional dropped fields (missing data), 
       random-walk drifts for continuous values, and multi-day persistent faults 
       so downstream pipeline logic (like consecutive_days_reproduced) can test real scenarios.
+    - Time-Variant Metadata: Simulates hardware swaps (SCD2). If you generate data 
+      past a specific date, a device ID will change, proving Point-in-Time accuracy.
+    - Fleet Manifest: Dumps a metadata file detailing the exact fleet topology 
+      (plants, machines, device counts) for that specific day.
 
+      
+      
 Outputs files locally under:
     batch_output/<component_type>/<device_id>/<YYYY-MM-DD>.json
+    batch_output/metadata/fleet_manifest_<YYYYMMDD>.json
 """
-
 
 import argparse
 import json
@@ -29,26 +35,76 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
-def build_fleet(num_plants=10, machines_per_plant=3):
-    """Generate a fleet of `num_plants` plants, each with `machines_per_plant`
-    HVAC machines, each machine carrying one device of every component type.
-    Device IDs are deterministic and globally unique across the whole fleet."""
+# --------------------------------------------------------------------------
+# 1. TIME-VARIANT FLEET TOPOLOGY (Metadata & Asset Registry)
+# --------------------------------------------------------------------------
+
+def build_fleet(target_date, num_plants=10, machines_per_plant=3):
+    """
+    Generates the fleet topology valid for a specific date.
+    Simulates hardware swaps so the data warehouse SCD2 logic can be tested.
+    """
     fleet = []
+    
+    # Simulate a historical hardware swap on a specific date
+    # E.g., On March 15, 2026, Compressor COMP-0101 was replaced with COMP-9999
+    swap_date = datetime(2026, 3, 15).date()
+
     for p in range(1, num_plants + 1):
         plant_id = f"PLANT-{p:02d}"
         for m in range(1, machines_per_plant + 1):
             hvac_machine_id = f"HVAC-{p:02d}-{m:02d}"
+            
+            # Default Device IDs
+            comp_id = f"COMP-{p:02d}{m:02d}"
+            cond_id = f"COND-{p:02d}{m:02d}"
+            evap_id = f"EVAP-{p:02d}{m:02d}"
+            exv_id = f"EXV-{p:02d}{m:02d}"
+            
+            # Point-in-Time Logic: Apply the swap if we are generating data after the swap date
+            if target_date >= swap_date and hvac_machine_id == "HVAC-01-01":
+                comp_id = "COMP-9999"  # The new replacement compressor
+                
             fleet.append({
                 "plantId": plant_id,
                 "hvacMachineId": hvac_machine_id,
                 "components": {
-                    "compressor": f"COMP-{p:02d}{m:02d}",
-                    "condenser": f"COND-{p:02d}{m:02d}",
-                    "evaporator": f"EVAP-{p:02d}{m:02d}",
-                    "expansion_valve": f"EXV-{p:02d}{m:02d}",
+                    "compressor": comp_id,
+                    "condenser": cond_id,
+                    "evaporator": evap_id,
+                    "expansion_valve": exv_id,
                 },
             })
     return fleet
+
+def export_fleet_manifest(fleet, output_dir, current_date):
+    """Exports a static lookup JSON tracking exactly what hardware existed on this day."""
+    manifest = {
+        "snapshotDate": current_date.strftime("%Y-%m-%d"),
+        "totalPlants": len(set(m["plantId"] for m in fleet)),
+        "totalHvacMachines": len(fleet),
+        "totalDevices": len(fleet) * 4,
+        "breakdownByComponent": {
+            "compressor": len(fleet),
+            "condenser": len(fleet),
+            "evaporator": len(fleet),
+            "expansion_valve": len(fleet)
+        },
+        "fleetTopology": fleet
+    }
+    
+    meta_dir = os.path.join(output_dir, "metadata")
+    os.makedirs(meta_dir, exist_ok=True)
+    manifest_path = os.path.join(meta_dir, f"fleet_manifest_{current_date.strftime('%Y%m%d')}.json")
+    
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+        
+    return manifest_path
+
+# --------------------------------------------------------------------------
+# 2. RAW-SCHEMA FIELD DEFINITIONS & FAULTS
+# --------------------------------------------------------------------------
 
 FAULT_CODES = {
     "compressor": ["CMP-HIGH-DISCH-TEMP", "CMP-LOW-OIL-PRESS", "CMP-HIGH-VIBRATION"],
@@ -56,10 +112,6 @@ FAULT_CODES = {
     "evaporator": ["EVP-FLOW-SWITCH-OPEN", "EVP-LOW-LWT", "EVP-PUMP-TRIP"],
     "expansion_valve": ["EXV-LOW-SUPERHEAT", "EXV-STUCK-VALVE", "EXV-HIGH-SUBCOOLING"],
 }
-
-# 2. RAW-SCHEMA FIELD DEFINITIONS
-#    (base, min, max, step_std, decimals) — drives a random-walk generator
-#    so consecutive readings look like a real physical process, not noise.
 
 COMPRESSOR_FIELDS = {
     "suctionPressureKpa": (450, 400, 500, 3.0),
@@ -128,7 +180,7 @@ EXPANSION_VALVE_FIELDS = {
     "actuatorVoltageV": (24.0, 22.0, 26.0, 0.1),
     "actuatorCurrentA": (0.4, 0.2, 0.8, 0.02),
     "powerConsumptionW": (9.5, 5.0, 14.0, 0.3),
-    "targetSuperheatC": (6.0, 6.0, 6.0, 0.0),  # setpoint, essentially fixed
+    "targetSuperheatC": (6.0, 6.0, 6.0, 0.0), 
 }
 
 FIELD_SETS = {
@@ -140,7 +192,9 @@ FIELD_SETS = {
 
 INT_FIELDS = {"rpm", "fanSpeedRpm", "waterValvePositionPct", "valveStepPosition", "responseTimeMs"}
 
+# --------------------------------------------------------------------------
 # 3. RANDOM-WALK STATE
+# --------------------------------------------------------------------------
 
 def init_state(component_type, rng):
     """Seed a device's starting values + cumulative counters + fault state."""
@@ -156,22 +210,17 @@ def init_state(component_type, rng):
         "fault_days_remaining": 0,
     }
 
-
 def walk(value, lo, hi, std, rng):
     new_value = value + rng.gauss(0, std)
     return max(lo, min(hi, new_value))
 
-
 def maybe_start_fault(component_type, state, rng, daily_fault_probability):
-    """Faults persist across multiple days once triggered (mimics real
-    mechanical degradation instead of flickering on/off every reading)."""
     if state["fault_active"]:
         return
     if rng.random() < daily_fault_probability:
         state["fault_active"] = True
         state["fault_code"] = rng.choice(FAULT_CODES[component_type])
         state["fault_days_remaining"] = rng.randint(2, 5)
-
 
 def tick_fault_day(state):
     if state["fault_active"]:
@@ -180,10 +229,7 @@ def tick_fault_day(state):
             state["fault_active"] = False
             state["fault_code"] = None
 
-
 def apply_fault_bias(component_type, state, values):
-    """Push a couple of correlated fields out of normal range while a fault
-    is active, so the degradation is visible in the telemetry itself."""
     if not state["fault_active"]:
         return
     if component_type == "compressor":
@@ -199,22 +245,18 @@ def apply_fault_bias(component_type, state, values):
         values["superheatC"] = max(0.5, values["superheatC"] - 3.5)
         values["subcoolingC"] = min(12.0, values["subcoolingC"] + 3)
 
-
-# 4. READING GENERATION (raw-schema shaped, stringified, occasionally sparse)
+# --------------------------------------------------------------------------
+# 4. READING GENERATION
+# --------------------------------------------------------------------------
 
 def stringify(field_name, value):
-    """Real sensors hand back stringified numbers, often with long float
-    tails (float32 -> float64 conversion noise). Integers stay clean."""
     if field_name in INT_FIELDS or field_name in ("startStopCount", "runHours") and False:
         return str(int(round(value)))
     if isinstance(value, int):
         return str(value)
-    # keep a realistic amount of float noise for continuous sensors
     return str(round(value, 6))
 
-
 def status_fields(component_type, rng, fault_active):
-    """Real-world raw status enums, still delivered as strings."""
     if component_type == "compressor":
         return {"compressorStatus": "OFF" if rng.random() < 0.02 else "ON"}
     if component_type == "condenser":
@@ -234,19 +276,16 @@ def status_fields(component_type, rng, fault_active):
         return {"valveStatus": "ACTIVE", "controlMode": "AUTO"}
     return {}
 
-
 def generate_reading(component_type, state, ts_ms, rng, dropout_probability):
     fields = FIELD_SETS[component_type]
     values = state["values"]
 
-    # random-walk every field
     for name, (_base, lo, hi, std) in fields.items():
         values[name] = walk(values[name], lo, hi, std, rng)
 
     apply_fault_bias(component_type, state, values)
 
-    # cumulative counters
-    state["run_hours"] += 5 / 60.0  # 5-minute tick, in hours
+    state["run_hours"] += 5 / 60.0 
     if rng.random() < 0.001:
         state["start_stop_count"] += 1
     if component_type == "expansion_valve":
@@ -258,6 +297,7 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability):
     }
     reading.update(status_fields(component_type, rng, state["fault_active"]))
     reading["runHours"] = stringify("runHours", state["run_hours"])
+    
     if component_type == "compressor":
         reading["startStopCount"] = str(state["start_stop_count"])
     if component_type == "expansion_valve":
@@ -277,7 +317,6 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability):
     )
     reading["dataQuality"] = "GOOD"
 
-    # simulate a sensor occasionally dropping out (real hardware does this)
     droppable = list(fields.keys())
     for name in droppable:
         if rng.random() < dropout_probability:
@@ -286,8 +325,9 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability):
 
     return reading
 
-
-# 5. BATCH FILE ASSEMBLY (one file per device per day — the actual S3 drop)
+# --------------------------------------------------------------------------
+# 5. BATCH FILE ASSEMBLY
+# --------------------------------------------------------------------------
 
 def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_id,
                                day, state, rng, interval_minutes, dropout_probability,
@@ -305,7 +345,7 @@ def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_
             generate_reading(component_type, state, ts_ms, rng, dropout_probability)
         )
 
-    tick_fault_day(state)  # fault duration counts down once per calendar day
+    tick_fault_day(state) 
 
     batch_id = f"batch-{device_id}-{day.strftime('%Y%m%d')}"
     batch = {
@@ -328,27 +368,38 @@ def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_
     }
     return batch
 
-
+# --------------------------------------------------------------------------
 # 6. DRIVER
+# --------------------------------------------------------------------------
 
 def run(output_dir, start_date, num_days, interval_minutes, dropout_probability,
         daily_fault_probability, seed, num_plants=10, machines_per_plant=3):
     rng = random.Random(seed)
-    fleet = build_fleet(num_plants=num_plants, machines_per_plant=machines_per_plant)
-
-    # one persistent state per device so values/faults evolve across days
+    
     device_states = {}
-    for machine in fleet:
-        for component_type, device_id in machine["components"].items():
-            device_states[device_id] = init_state(component_type, rng)
-
     files_written = []
+    manifests_written = []
+
     for day_offset in range(num_days):
         day = start_date + timedelta(days=day_offset)
-        for machine in fleet:
+        
+        # Get the accurate topology for THIS specific day (handles mid-run hardware swaps)
+        daily_fleet = build_fleet(day.date(), num_plants, machines_per_plant)
+        
+        # Dump the manifest metadata for this day
+        manifest_path = export_fleet_manifest(daily_fleet, output_dir, day.date())
+        manifests_written.append(manifest_path)
+
+        for machine in daily_fleet:
             plant_id = machine["plantId"]
             hvac_machine_id = machine["hvacMachineId"]
+            
             for component_type, device_id in machine["components"].items():
+                
+                # If a device ID was swapped mid-run, it won't be in state yet; initialize it
+                if device_id not in device_states:
+                    device_states[device_id] = init_state(component_type, rng)
+                
                 state = device_states[device_id]
                 batch = generate_device_day_batch(
                     component_type, device_id, plant_id, hvac_machine_id,
@@ -364,8 +415,7 @@ def run(output_dir, start_date, num_days, interval_minutes, dropout_probability,
                     json.dump(batch, f, indent=2)
                 files_written.append(out_path)
 
-    return files_written
-
+    return files_written, manifests_written
 
 def main():
     parser = argparse.ArgumentParser(description="Generate realistic HVAC batch telemetry files.")
@@ -381,14 +431,13 @@ def main():
                          help="chance a healthy device develops a new fault on a given day")
     parser.add_argument("--plants", type=int, default=10, help="number of plants in the fleet")
     parser.add_argument("--machines-per-plant", type=int, default=3,
-                         help="HVAC machines per plant; each machine = 1 compressor + "
-                              "1 condenser + 1 evaporator + 1 expansion valve, so this "
-                              "also sets the minimum device count per type per plant")
+                         help="HVAC machines per plant; also sets device counts.")
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 
     start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
-    files = run(
+    
+    files, manifests = run(
         output_dir=args.output_dir,
         start_date=start_date,
         num_days=args.days,
@@ -402,14 +451,17 @@ def main():
 
     total_devices = args.plants * args.machines_per_plant * 4
     print(f"Fleet: {args.plants} plants x {args.machines_per_plant} machines/plant "
-          f"= {args.plants * args.machines_per_plant} machines, {total_devices} devices total "
-          f"({args.machines_per_plant} of each component type per plant).")
-    print(f"Wrote {len(files)} batch files to '{args.output_dir}/':")
-    for path in files[:12]:
+          f"= {args.plants * args.machines_per_plant} machines, {total_devices} devices total.")
+    
+    print(f"\nWrote {len(manifests)} metadata manifest files to '{args.output_dir}/metadata/':")
+    for path in manifests[:3]:
         print(f"  {path}")
-    if len(files) > 12:
-        print(f"  ... and {len(files) - 12} more")
-
+        
+    print(f"\nWrote {len(files)} raw batch telemetry files to '{args.output_dir}/':")
+    for path in files[:5]:
+        print(f"  {path}")
+    if len(files) > 5:
+        print(f"  ... and {len(files) - 5} more")
 
 if __name__ == "__main__":
     main()
