@@ -17,6 +17,7 @@
         "companyId": { "type": ["string", "null"] },
         "companyName": { "type": ["string", "null"] },
         "plantId": { "type": ["string", "null"] },
+        "circuitId": { "type": ["string", "null"] },
         "plantName": { "type": ["string", "null"] },
         "plantBuilding": { "type": ["string", "null"] },
         "plantFloor": { "type": ["string", "null"] },

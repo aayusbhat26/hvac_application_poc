@@ -21,11 +21,10 @@ actually dump telemetry in real-world systems:
     - Fleet Manifest: Dumps a metadata file detailing the exact fleet topology 
       (plants, machines, device counts) for that specific day.
 
-      
-      
 Outputs files locally under:
     batch_output/<component_type>/<device_id>/<YYYY-MM-DD>.json
     batch_output/metadata/fleet_manifest_<YYYYMMDD>.json
+    
 """
 
 import argparse
@@ -38,7 +37,6 @@ from datetime import datetime, timedelta, timezone
 # --------------------------------------------------------------------------
 # 1. TIME-VARIANT FLEET TOPOLOGY (Metadata & Asset Registry)
 # --------------------------------------------------------------------------
-
 def build_fleet(target_date, num_plants=10, machines_per_plant=3):
     """
     Generates the fleet topology valid for a specific date.
@@ -250,7 +248,8 @@ def apply_fault_bias(component_type, state, values):
 # --------------------------------------------------------------------------
 
 def stringify(field_name, value):
-    if field_name in INT_FIELDS or field_name in ("startStopCount", "runHours") and False:
+    # FIXED: Removed 'and False' so ints are properly cast
+    if field_name in INT_FIELDS or field_name in ("startStopCount", "runHours"):
         return str(int(round(value)))
     if isinstance(value, int):
         return str(value)
@@ -276,7 +275,8 @@ def status_fields(component_type, rng, fault_active):
         return {"valveStatus": "ACTIVE", "controlMode": "AUTO"}
     return {}
 
-def generate_reading(component_type, state, ts_ms, rng, dropout_probability):
+# FIXED: Added interval_minutes to the parameter list
+def generate_reading(component_type, state, ts_ms, rng, dropout_probability, interval_minutes):
     fields = FIELD_SETS[component_type]
     values = state["values"]
 
@@ -285,7 +285,8 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability):
 
     apply_fault_bias(component_type, state, values)
 
-    state["run_hours"] += 5 / 60.0 
+    # FIXED: Use actual interval_minutes instead of hardcoded 5
+    state["run_hours"] += interval_minutes / 60.0 
     if rng.random() < 0.001:
         state["start_stop_count"] += 1
     if component_type == "expansion_valve":
@@ -342,7 +343,8 @@ def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_
         ts = day_start + timedelta(minutes=i * interval_minutes)
         ts_ms = int(ts.timestamp() * 1000)
         records.append(
-            generate_reading(component_type, state, ts_ms, rng, dropout_probability)
+            # FIXED: Passing interval_minutes to generate_reading
+            generate_reading(component_type, state, ts_ms, rng, dropout_probability, interval_minutes)
         )
 
     tick_fault_day(state) 
