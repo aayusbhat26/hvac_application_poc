@@ -1,0 +1,56 @@
+name: Data Generation and Upload Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      days_to_generate:
+        description: 'Number of days of data to generate'
+        required: false
+        default: '1'
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas deltalake
+
+      - name: Install Hugging Face CLI (hf)
+        run: |
+          curl -fsSL https://hf.co/cli/install.sh | bash
+
+      - name: Create data directories
+        run: |
+          mkdir -p data/batch/raw
+          mkdir -p data/batch/bronze
+          mkdir -p data/real\ time  # Creating empty real time folder as requested
+
+      - name: Generate Raw JSON Data
+        run: |
+          python scripts/generate_batch_data.py \
+            --output-dir data/batch/raw \
+            --days ${{ github.event.inputs.days_to_generate || '1' }}
+
+      - name: Convert Raw JSON to Delta Format (Bronze)
+        run: |
+          python scripts/convert_to_delta.py \
+            --input-dir data/batch/raw \
+            --output-dir data/batch/bronze
+
+      - name: Upload to Hugging Face Bucket
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Sync the data folder to the specified HF Bucket
+          # Make sure HF_TOKEN is set as a repository secret in GitHub
+          hf sync ./data hf://buckets/aayushbhat26/hvac_application_poc_bucket
