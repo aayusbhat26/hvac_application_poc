@@ -43,6 +43,17 @@ def process_files(input_dir, output_dir):
             # For bronze, we usually just want the records + a partition column
             df = pd.DataFrame(records)
             
+            # Inject required metadata from the batch envelope
+            meta_fields = [
+                "companyId", "companyName", "locationId", "locationName", 
+                "locationCity", "locationState", "locationCountry", 
+                "hvacMachineId", "componentId", "componentType", 
+                "batchId", "uploadedBy", "sourceFileName", "circuitId"
+            ]
+            for field in meta_fields:
+                if field in batch_data:
+                    df[field] = batch_data[field]
+            
             # Ensure timestamp is an integer
             df['timestamp'] = df['timestamp'].astype('int64')
             
@@ -78,7 +89,8 @@ def process_files(input_dir, output_dir):
             table_path, 
             combined_df, 
             mode="append", 
-            partition_by=["date"]
+            partition_by=["date"],
+            schema_mode="merge"
         )
         print(f"Successfully wrote {component_type} Delta table.")
 
@@ -88,5 +100,4 @@ if __name__ == "__main__":
     parser.add_argument("--output-dir", required=True, help="Directory to save the Delta tables")
     
     args = parser.parse_args()
-    process_files(args.input_dir, args.output_dir)
     process_files(args.input_dir, args.output_dir)
