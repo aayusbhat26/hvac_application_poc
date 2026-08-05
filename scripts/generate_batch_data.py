@@ -5,50 +5,7 @@ Generates realistic batch telemetry files for the HVAC fleet matching the schema
 `schema/raw/*.json` (compressor, condenser, evaporator, expansion_valve).
 
 This is a batch data generator, not a streaming simulator. It models how edge gateways
-actually dump telemetry in real-world systems:
-
-    - Edge gateways buffer sensor readings locally all day (every 5 mins).
-    - At the end of the day, it dumps one batch JSON file per device into S3.
-    - The file contains a metadata envelope (ingestionMode=BATCH, sourceFileName,
-      ingestionChannel, batch window, deviceId) plus an array of raw readings.
-    - Values are delivered as stringified numbers and 13-digit epoch-millisecond
-      timestamps (as strings), exactly how real PLCs/sensors send them.
-    - Includes real-world quirks: occasional dropped fields (missing data),
-      random-walk drifts for continuous values, and multi-day persistent faults
-      so downstream pipeline logic (like consecutive_days_reproduced) can test real scenarios.
-    - Time-Variant Metadata: Simulates hardware swaps (SCD2). If you generate data
-      past a specific date, a device ID will change, proving Point-in-Time accuracy.
-    - Fleet Manifest: Dumps a metadata file detailing the exact fleet topology
-      (plants, machines, device counts) for that specific day.
-
-    1. Dual-circuit architecture. Each HVAC machine has 2 refrigeration
-       circuits (A/B). A compressor and an expansion valve exist PER CIRCUIT
-       (2 + 2), while the condenser and evaporator are shared by both circuits
-       (1 + 1). That's 6 raw device JSONs per machine -- matching the
-       "2-circuit availability logic" / "6 component JSONs" discussion, and
-       it lets a machine be "partially available" (one circuit tripped, one
-       healthy) instead of only fully-on/fully-off.
-    2. New raw fields:
-         - circuitId  (compressor, expansion_valve) -> "A" or "B"
-         - runStatus  (compressor) -> 1/0, the explicit binary field the
-           Fleet/Plant Availability KPI needs (instead of inferring from
-           compressorStatus text).
-         - waterFlowRateLpm (evaporator) -> liters/min, since the kW/Ton and
-           Capacity Utilization formulas were specified in LPM, not GPM.
-    3. Static metadata added to the fleet manifest (previously missing):
-         - maxDesignCapacityTr per machine (needed for Capacity Utilization %
-           and the Plant Performance Matrix's static denominator).
-         - latitude/longitude + aggregated totalDesignCapacityTr per plant
-           (needed for the Global Fleet Map's bubble size + position).
-    4. Output folder structure changed from a flat device_id folder to a
-       plant/date hierarchy:
-           <output_dir>/plant_<PP>/<YYYY>/<month_name>/day<D>/
-               <component>_<PP>_<MM>[_<circuit>]_<uploadTimestamp>.json
-       e.g. plant_01/2026/august/day3/compressor_01_01_A_1754179200000.json
-
-Outputs files locally under:
-    batch_output/plant_<PP>/<YYYY>/<month_name>/day<D>/<component>_<PP>_<MM>[_<circuit>]_<timestamp>.json
-    batch_output/metadata/fleet_manifest_<YYYYMMDD>.json
+actually dump telemetry in real-world systems.
 """
 
 import argparse
@@ -64,112 +21,113 @@ from datetime import datetime, timedelta, timezone
 # --------------------------------------------------------------------------
 
 def _stable_seed(*parts):
-    """A deterministic seed derived from stable IDs (not affected by rng draws
-    elsewhere), so static attributes like plant location / design capacity
-    stay fixed for a given plant/machine across every day of the run."""
     key = "|".join(str(p) for p in parts).encode()
     return zlib.crc32(key)
 
-
-def plant_location(plant_id):
-    """Deterministic lat/lon per plant (rough India bounding box), used by
-    the Global Fleet Map."""
-    r = random.Random(_stable_seed("loc", plant_id))
+def location_coordinates(location_id):
+    r = random.Random(_stable_seed("loc", location_id))
     lat = round(r.uniform(8.0, 34.0), 5)
     lon = round(r.uniform(69.0, 88.0), 5)
     return lat, lon
 
-
 def machine_design_capacity_tr(hvac_machine_id):
-    """Deterministic max design cooling capacity (TR) per machine, used as
-    the static denominator for Capacity Utilization %."""
     r = random.Random(_stable_seed("cap", hvac_machine_id))
     return r.choice([300, 350, 400, 450, 500, 550, 600])
-
 
 # --------------------------------------------------------------------------
 # 1. TIME-VARIANT FLEET TOPOLOGY (Metadata & Asset Registry)
 # --------------------------------------------------------------------------
 
-def build_fleet(target_date, num_plants=10, machines_per_plant=3):
-    """
-    Generates the fleet topology valid for a specific date.
-    Simulates hardware swaps so the data warehouse SCD2 logic can be tested.
+def load_json(filepath):
+    import json
+    with open(filepath, 'r') as f:
+        return json.load(f)
 
-    Each HVAC machine has 2 refrigeration circuits (A/B):
-        - compressor:       one per circuit (2 total)
-        - expansion_valve:  one per circuit (2 total)
-        - condenser:        shared (1 total)
-        - evaporator:       shared (1 total)
-    => 6 raw device JSONs per machine.
-    """
+def build_fleet(target_date):
     fleet = []
-
-    # Simulate a historical hardware swap on a specific date.
-    # Only Circuit A's compressor gets swapped -- Circuit B is untouched,
-    # which is the realistic failure/replacement pattern for dual-circuit units.
+    # Hardcoded swap date for SCD2 testing purposes
     swap_date = datetime(2026, 3, 15).date()
+    
+    customers = load_json('config/topology/customers.json')
+    locations = load_json('config/topology/locations.json')
+    machines = load_json('config/topology/hvac_machines.json')
 
-    for p in range(1, num_plants + 1):
-        plant_id = f"PLANT-{p:02d}"
-        for m in range(1, machines_per_plant + 1):
-            hvac_machine_id = f"HVAC-{p:02d}-{m:02d}"
+    customer_map = {c['companyId']: c for c in customers}
+    location_map = {l['locationId']: l for l in locations}
 
-            comp_id_a = f"COMP-{p:02d}{m:02d}A"
-            comp_id_b = f"COMP-{p:02d}{m:02d}B"
-            cond_id = f"COND-{p:02d}{m:02d}"
-            evap_id = f"EVAP-{p:02d}{m:02d}"
-            exv_id_a = f"EXV-{p:02d}{m:02d}A"
-            exv_id_b = f"EXV-{p:02d}{m:02d}B"
+    for machine in machines:
+        location_id = machine['locationId']
+        loc = location_map[location_id]
+        customer = customer_map[loc['companyId']]
+        
+        # We need location_num for backwards compatibility with device names
+        # Assuming locationId format is LOC-XX
+        location_num = int(location_id.split('-')[1])
+        
+        hvac_machine_id = machine['hvacMachineId']
+        m = int(hvac_machine_id.split('-')[-1])
+        
+        comp_id_a = f"COMP-{location_num:02d}{m:02d}A"
+        comp_id_b = f"COMP-{location_num:02d}{m:02d}B"
+        cond_id = f"COND-{location_num:02d}{m:02d}"
+        evap_id = f"EVAP-{location_num:02d}{m:02d}"
+        exv_id_a = f"EXV-{location_num:02d}{m:02d}A"
+        exv_id_b = f"EXV-{location_num:02d}{m:02d}B"
 
-            if target_date >= swap_date and hvac_machine_id == "HVAC-01-01":
-                comp_id_a = "COMP-9999"  # replacement compressor, Circuit A only
+        if target_date >= swap_date and hvac_machine_id == "HVAC-01-01":
+            comp_id_a = "COMP-9999"
 
-            fleet.append({
-                "plantId": plant_id,
-                "plantNum": p,
-                "machineNum": m,
-                "hvacMachineId": hvac_machine_id,
-                "maxDesignCapacityTr": machine_design_capacity_tr(hvac_machine_id),
-                "components": {
-                    "compressor": [
-                        {"deviceId": comp_id_a, "circuitId": "A"},
-                        {"deviceId": comp_id_b, "circuitId": "B"},
-                    ],
-                    "condenser": [
-                        {"deviceId": cond_id, "circuitId": None},
-                    ],
-                    "evaporator": [
-                        {"deviceId": evap_id, "circuitId": None},
-                    ],
-                    "expansion_valve": [
-                        {"deviceId": exv_id_a, "circuitId": "A"},
-                        {"deviceId": exv_id_b, "circuitId": "B"},
-                    ],
-                },
-            })
+        fleet.append({
+            "locationId": location_id,
+            "locationNum": location_num,
+            "locationName": loc["locationName"],
+            "locationCity": loc["city"],
+            "locationState": loc["state"],
+            "locationCountry": loc["country"],
+            "companyId": customer["companyId"],
+            "companyName": customer["companyName"],
+            "machineNum": m,
+            "hvacMachineId": hvac_machine_id,
+            "manufacturer": machine["manufacturer"],
+            "model": machine["model"],
+            "maxDesignCapacityTr": machine_design_capacity_tr(hvac_machine_id),
+            "components": {
+                "compressor": [
+                    {"deviceId": comp_id_a, "circuitId": "A"},
+                    {"deviceId": comp_id_b, "circuitId": "B"},
+                ],
+                "condenser": [
+                    {"deviceId": cond_id, "circuitId": None},
+                ],
+                "evaporator": [
+                    {"deviceId": evap_id, "circuitId": None},
+                ],
+                "expansion_valve": [
+                    {"deviceId": exv_id_a, "circuitId": "A"},
+                    {"deviceId": exv_id_b, "circuitId": "B"},
+                ],
+            },
+        })
     return fleet
 
-
 def export_fleet_manifest(fleet, output_dir, current_date):
-    """Exports a static lookup JSON tracking exactly what hardware existed on
-    this day, plus the static metadata the dashboards need (design capacity,
-    plant location) that never comes through the live sensor payloads."""
-
-    plants = {}
+    locations = {}
     for machine in fleet:
-        pid = machine["plantId"]
-        plants.setdefault(pid, {
-            "plantId": pid,
-            "plantNum": machine["plantNum"],
+        lid = machine["locationId"]
+        locations.setdefault(lid, {
+            "locationId": lid,
+            "locationName": machine["locationName"],
+            "locationNum": machine["locationNum"],
+            "companyId": machine["companyId"],
+            "companyName": machine["companyName"],
             "machineCount": 0,
             "totalDesignCapacityTr": 0,
         })
-        plants[pid]["machineCount"] += 1
-        plants[pid]["totalDesignCapacityTr"] += machine["maxDesignCapacityTr"]
+        locations[lid]["machineCount"] += 1
+        locations[lid]["totalDesignCapacityTr"] += machine["maxDesignCapacityTr"]
 
-    for pid, info in plants.items():
-        lat, lon = plant_location(pid)
+    for lid, info in locations.items():
+        lat, lon = location_coordinates(lid)
         info["latitude"] = lat
         info["longitude"] = lon
 
@@ -180,7 +138,7 @@ def export_fleet_manifest(fleet, output_dir, current_date):
 
     manifest = {
         "snapshotDate": current_date.strftime("%Y-%m-%d"),
-        "totalPlants": len(plants),
+        "totalLocations": len(locations),
         "totalHvacMachines": len(fleet),
         "totalDevices": total_compressors + total_exv + total_condensers + total_evaporators,
         "breakdownByComponent": {
@@ -189,7 +147,7 @@ def export_fleet_manifest(fleet, output_dir, current_date):
             "evaporator": total_evaporators,
             "expansion_valve": total_exv,
         },
-        "plants": list(plants.values()),
+        "locations": list(locations.values()),
         "fleetTopology": fleet,
     }
 
@@ -297,7 +255,6 @@ INT_FIELDS = {"rpm", "fanSpeedRpm", "waterValvePositionPct", "valveStepPosition"
 # --------------------------------------------------------------------------
 
 def init_state(component_type, rng):
-    """Seed a device's starting values + cumulative counters + fault state."""
     fields = FIELD_SETS[component_type]
     values = {name: base for name, (base, _lo, _hi, _std) in fields.items()}
     return {
@@ -397,8 +354,6 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
         "timestamp": str(ts_ms),
     }
 
-    # NEW: circuitId lets the pipeline tell Circuit A apart from Circuit B
-    # for the dual-circuit Availability logic.
     if circuit_id is not None:
         reading["circuitId"] = circuit_id
 
@@ -407,9 +362,6 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
 
     if component_type == "compressor":
         reading["startStopCount"] = str(state["start_stop_count"])
-        # NEW: explicit binary run_status field required by the Fleet/Plant
-        # Availability KPI (1 = running/ready, 0 = tripped/off), instead of
-        # having the pipeline re-derive it from the text compressorStatus.
         is_critically_faulted = state["fault_active"] and state["fault_days_remaining"] <= 1
         reading["runStatus"] = 0 if (reading["compressorStatus"] == "OFF" or is_critically_faulted) else 1
 
@@ -421,10 +373,6 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
     for name in fields:
         reading[name] = stringify(name, values[name])
 
-    # NEW: LPM flow rate for the evaporator. The Energy Intensity (kW/Ton)
-    # and Capacity Utilization formulas were specified using flow_rate_lpm,
-    # not GPM, so we derive it here (1 US gallon = 3.785411784 liters) and
-    # keep the original GPM field for any legacy consumers.
     if component_type == "evaporator":
         gpm = values["waterFlowRateGpm"]
         reading["waterFlowRateLpm"] = str(round(gpm * 3.785411784, 3))
@@ -450,7 +398,7 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
 # 5. BATCH FILE ASSEMBLY
 # --------------------------------------------------------------------------
 
-def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_id,
+def generate_device_day_batch(component_type, device_id, machine,
                                day, state, rng, interval_minutes, dropout_probability,
                                daily_fault_probability, circuit_id=None):
     maybe_start_fault(component_type, state, rng, daily_fault_probability)
@@ -472,10 +420,11 @@ def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_
     upload_ts_ms = int((day_start + timedelta(days=1)).timestamp() * 1000)
     batch_id = f"batch-{device_id}-{day.strftime('%Y%m%d')}"
     circuit_tag = f"_{circuit_id}" if circuit_id else ""
+    location_id = machine["locationId"]
 
     batch = {
         "ingestionMode": "BATCH",
-        "uploadedBy": f"edge-gateway-{plant_id.lower()}",
+        "uploadedBy": f"edge-gateway-{location_id.lower()}",
         "uploadTimestamp": str(upload_ts_ms),
         "sourceFileName": f"{component_type}_{device_id}_{day.strftime('%Y%m%d')}{circuit_tag}.json",
         "sourceSystem": "BMS-EdgeCollector-v2.3",
@@ -484,8 +433,17 @@ def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_
         "componentId": device_id,
         "componentType": component_type,
         "circuitId": circuit_id,
-        "hvacMachineId": hvac_machine_id,
-        "plantId": plant_id,
+        "hvacMachineId": machine["hvacMachineId"],
+        
+        # New enriched location & company fields for the raw schema
+        "companyId": machine["companyId"],
+        "companyName": machine["companyName"],
+        "locationId": location_id,
+        "locationName": machine["locationName"],
+        "locationCity": machine["locationCity"],
+        "locationState": machine["locationState"],
+        "locationCountry": machine["locationCountry"],
+
         "batchStartTime": str(int(day_start.timestamp() * 1000)),
         "batchEndTime": str(int((day_start + timedelta(days=1)).timestamp() * 1000)),
         "readingIntervalSeconds": interval_minutes * 60,
@@ -499,7 +457,7 @@ def generate_device_day_batch(component_type, device_id, plant_id, hvac_machine_
 # --------------------------------------------------------------------------
 
 def run(output_dir, start_date, num_days, interval_minutes, dropout_probability,
-        daily_fault_probability, seed, num_plants=10, machines_per_plant=3):
+        daily_fault_probability, seed):
     rng = random.Random(seed)
 
     device_states = {}
@@ -509,26 +467,23 @@ def run(output_dir, start_date, num_days, interval_minutes, dropout_probability,
     for day_offset in range(num_days):
         day = start_date + timedelta(days=day_offset)
 
-        # Get the accurate topology for THIS specific day (handles mid-run hardware swaps)
-        daily_fleet = build_fleet(day.date(), num_plants, machines_per_plant)
+        # Get the accurate topology for THIS specific day
+        daily_fleet = build_fleet(day.date())
 
         # Dump the manifest metadata for this day
         manifest_path = export_fleet_manifest(daily_fleet, output_dir, day.date())
         manifests_written.append(manifest_path)
 
-        # NEW: date-based folder pieces, shared by every machine generated today
-        # plant_<PP>/<YYYY>/<month_name>/day<D>/
         month_name = day.strftime("%B").lower()
         day_folder = f"day{day.day}"
 
         for machine in daily_fleet:
-            plant_id = machine["plantId"]
-            plant_num = machine["plantNum"]
+            location_id = machine["locationId"]
+            location_num = machine["locationNum"]
             machine_num = machine["machineNum"]
-            hvac_machine_id = machine["hvacMachineId"]
 
             out_dir = os.path.join(
-                output_dir, f"plant_{plant_num:02d}", str(day.year), month_name, day_folder
+                output_dir, f"location_{location_num:02d}", str(day.year), month_name, day_folder
             )
             os.makedirs(out_dir, exist_ok=True)
 
@@ -537,20 +492,18 @@ def run(output_dir, start_date, num_days, interval_minutes, dropout_probability,
                     device_id = device_info["deviceId"]
                     circuit_id = device_info["circuitId"]
 
-                    # If a device ID was swapped mid-run, it won't be in state yet; initialize it
                     if device_id not in device_states:
                         device_states[device_id] = init_state(component_type, rng)
 
                     state = device_states[device_id]
                     batch, upload_ts_ms = generate_device_day_batch(
-                        component_type, device_id, plant_id, hvac_machine_id,
+                        component_type, device_id, machine,
                         day, state, rng, interval_minutes, dropout_probability,
                         daily_fault_probability, circuit_id=circuit_id,
                     )
 
-                    # NEW: filename = component_plantNum_machineNum[_circuit]_timestamp.json
                     circuit_suffix = f"_{circuit_id}" if circuit_id else ""
-                    file_name = f"{component_type}_{plant_num:02d}_{machine_num:02d}{circuit_suffix}_{upload_ts_ms}.json"
+                    file_name = f"{component_type}_{location_num:02d}_{machine_num:02d}{circuit_suffix}_{upload_ts_ms}.json"
                     out_path = os.path.join(out_dir, file_name)
 
                     with open(out_path, "w") as f:
@@ -571,9 +524,6 @@ def main():
                          help="chance any given sensor field is missing on a reading")
     parser.add_argument("--daily-fault-probability", type=float, default=0.10,
                          help="chance a healthy device develops a new fault on a given day")
-    parser.add_argument("--plants", type=int, default=10, help="number of plants in the fleet")
-    parser.add_argument("--machines-per-plant", type=int, default=3,
-                         help="HVAC machines per plant; also sets device counts.")
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 
@@ -587,14 +537,7 @@ def main():
         dropout_probability=args.dropout_probability,
         daily_fault_probability=args.daily_fault_probability,
         seed=args.seed,
-        num_plants=args.plants,
-        machines_per_plant=args.machines_per_plant,
     )
-
-    total_devices = args.plants * args.machines_per_plant * 6
-    print(f"Fleet: {args.plants} plants x {args.machines_per_plant} machines/plant "
-          f"= {args.plants * args.machines_per_plant} machines, {total_devices} devices total "
-          f"(2 compressors + 2 EXVs + 1 condenser + 1 evaporator per machine).")
 
     print(f"\nWrote {len(manifests)} metadata manifest files to '{args.output_dir}/metadata/':")
     for path in manifests[:3]:

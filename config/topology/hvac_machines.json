@@ -1,0 +1,488 @@
+[
+  {
+    "hvacMachineId": "HVAC-01-01",
+    "locationId": "LOC-01",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-01-02",
+    "locationId": "LOC-01",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-01-03",
+    "locationId": "LOC-01",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-01-04",
+    "locationId": "LOC-01",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-01-05",
+    "locationId": "LOC-01",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-01-06",
+    "locationId": "LOC-01",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-01-07",
+    "locationId": "LOC-01",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-01-08",
+    "locationId": "LOC-01",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-01-09",
+    "locationId": "LOC-01",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-02-01",
+    "locationId": "LOC-02",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-02-02",
+    "locationId": "LOC-02",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-02-03",
+    "locationId": "LOC-02",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-02-04",
+    "locationId": "LOC-02",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-02-05",
+    "locationId": "LOC-02",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-02-06",
+    "locationId": "LOC-02",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-02-07",
+    "locationId": "LOC-02",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-02-08",
+    "locationId": "LOC-02",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-02-09",
+    "locationId": "LOC-02",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-03-01",
+    "locationId": "LOC-03",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-03-02",
+    "locationId": "LOC-03",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-03-03",
+    "locationId": "LOC-03",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-03-04",
+    "locationId": "LOC-03",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-03-05",
+    "locationId": "LOC-03",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-03-06",
+    "locationId": "LOC-03",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-03-07",
+    "locationId": "LOC-03",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-03-08",
+    "locationId": "LOC-03",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-03-09",
+    "locationId": "LOC-03",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-04-01",
+    "locationId": "LOC-04",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-04-02",
+    "locationId": "LOC-04",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-04-03",
+    "locationId": "LOC-04",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-04-04",
+    "locationId": "LOC-04",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-04-05",
+    "locationId": "LOC-04",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-04-06",
+    "locationId": "LOC-04",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-04-07",
+    "locationId": "LOC-04",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-04-08",
+    "locationId": "LOC-04",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-04-09",
+    "locationId": "LOC-04",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-05-01",
+    "locationId": "LOC-05",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-05-02",
+    "locationId": "LOC-05",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-05-03",
+    "locationId": "LOC-05",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-05-04",
+    "locationId": "LOC-05",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-05-05",
+    "locationId": "LOC-05",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-05-06",
+    "locationId": "LOC-05",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-05-07",
+    "locationId": "LOC-05",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-05-08",
+    "locationId": "LOC-05",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-05-09",
+    "locationId": "LOC-05",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-06-01",
+    "locationId": "LOC-06",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-06-02",
+    "locationId": "LOC-06",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-06-03",
+    "locationId": "LOC-06",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-06-04",
+    "locationId": "LOC-06",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-06-05",
+    "locationId": "LOC-06",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-06-06",
+    "locationId": "LOC-06",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-06-07",
+    "locationId": "LOC-06",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-06-08",
+    "locationId": "LOC-06",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-06-09",
+    "locationId": "LOC-06",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-07-01",
+    "locationId": "LOC-07",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-07-02",
+    "locationId": "LOC-07",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-07-03",
+    "locationId": "LOC-07",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-07-04",
+    "locationId": "LOC-07",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-07-05",
+    "locationId": "LOC-07",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-07-06",
+    "locationId": "LOC-07",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-07-07",
+    "locationId": "LOC-07",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-07-08",
+    "locationId": "LOC-07",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-07-09",
+    "locationId": "LOC-07",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-08-01",
+    "locationId": "LOC-08",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-08-02",
+    "locationId": "LOC-08",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-08-03",
+    "locationId": "LOC-08",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-08-04",
+    "locationId": "LOC-08",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-08-05",
+    "locationId": "LOC-08",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-08-06",
+    "locationId": "LOC-08",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-08-07",
+    "locationId": "LOC-08",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-08-08",
+    "locationId": "LOC-08",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-08-09",
+    "locationId": "LOC-08",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-09-01",
+    "locationId": "LOC-09",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-09-02",
+    "locationId": "LOC-09",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-09-03",
+    "locationId": "LOC-09",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-09-04",
+    "locationId": "LOC-09",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  },
+  {
+    "hvacMachineId": "HVAC-09-05",
+    "locationId": "LOC-09",
+    "manufacturer": "Daikin",
+    "model": "WME-800"
+  },
+  {
+    "hvacMachineId": "HVAC-09-06",
+    "locationId": "LOC-09",
+    "manufacturer": "York",
+    "model": "YVAA-1800"
+  },
+  {
+    "hvacMachineId": "HVAC-09-07",
+    "locationId": "LOC-09",
+    "manufacturer": "McQuay",
+    "model": "WSC-900"
+  },
+  {
+    "hvacMachineId": "HVAC-09-08",
+    "locationId": "LOC-09",
+    "manufacturer": "Trane",
+    "model": "CenTraVac CVHE 1200"
+  },
+  {
+    "hvacMachineId": "HVAC-09-09",
+    "locationId": "LOC-09",
+    "manufacturer": "Carrier",
+    "model": "19XR-1000"
+  }
+]

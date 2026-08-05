@@ -1,0 +1,38 @@
+[
+  {
+    "companyId": "CUST-01",
+    "companyName": "Marriott International",
+    "industry": "Hospitality",
+    "accountType": "Enterprise"
+  },
+  {
+    "companyId": "CUST-02",
+    "companyName": "Amazon Fulfillment",
+    "industry": "Logistics",
+    "accountType": "Enterprise"
+  },
+  {
+    "companyId": "CUST-03",
+    "companyName": "Samsung",
+    "industry": "Manufacturing",
+    "accountType": "Enterprise"
+  },
+  {
+    "companyId": "CUST-04",
+    "companyName": "JPMorgan Chase",
+    "industry": "Finance",
+    "accountType": "Enterprise"
+  },
+  {
+    "companyId": "CUST-05",
+    "companyName": "Dubai Airports",
+    "industry": "Aviation",
+    "accountType": "Enterprise"
+  },
+  {
+    "companyId": "CUST-06",
+    "companyName": "Mayo Clinic",
+    "industry": "Healthcare",
+    "accountType": "Enterprise"
+  }
+]

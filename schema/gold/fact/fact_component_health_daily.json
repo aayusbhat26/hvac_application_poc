@@ -1,0 +1,21 @@
+{
+  "table": "fact_component_health_daily",
+  "layer": "gold",
+  "grain": "one row per component per day",
+  "note": "NEW TABLE — needed for Machine Details page (Screenshot 6) to show per-component health scores",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
+    { "name": "component_type", "type": "string", "note": "Denormalized: condenser | evaporator | compressor | expansion_valve" },
+    { "name": "health_score", "type": "double", "note": "0-100 score shown on Machine Details component cards" },
+    { "name": "health_status", "type": "string", "note": "Healthy | Warning | Critical | Fault — badge on component card" },
+    { "name": "device_status", "type": "string", "note": "Running | Stopped | Fault — shown on Component Details page" },
+    { "name": "fault_count", "type": "int" },
+    { "name": "is_online", "type": "boolean", "note": "Whether the device is currently sending data" },
+    { "name": "last_data_timestamp", "type": "timestamp", "note": "Most recent reading, for 'Last data: 2s ago'" }
+  ]
+}

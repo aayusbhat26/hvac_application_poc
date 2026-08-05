@@ -1,0 +1,33 @@
+{
+  "table": "fact_component_telemetry_hourly",
+  "layer": "gold",
+  "grain": "one row per component per hour",
+  "note": "NEW TABLE — needed for Component Details page (Screenshot 7) intraday 24h trend charts (Power, Temperature, Pressure, Current)",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "hour_key", "type": "int", "note": "0-23, hour of day" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
+    { "name": "component_type", "type": "string", "note": "Denormalized for query convenience" },
+    { "name": "readings_count", "type": "int" },
+
+    { "name": "avg_power_kw", "type": "double", "note": "Power Trend chart — all component types" },
+    { "name": "max_power_kw", "type": "double" },
+    { "name": "min_power_kw", "type": "double" },
+
+    { "name": "avg_temperature_primary_c", "type": "double", "note": "Compressor: discharge_temp, Condenser: water_outlet_temp, Evaporator: leaving_chilled_water_temp, EXV: liquid_line_temp" },
+    { "name": "avg_temperature_secondary_c", "type": "double", "note": "Compressor: suction_temp, Condenser: water_inlet_temp, Evaporator: entering_chilled_water_temp, EXV: evap_outlet_temp", "nullable": true },
+
+    { "name": "avg_pressure_primary_kpa", "type": "double", "note": "Compressor: discharge, Condenser: condenser_pressure, EXV: inlet", "nullable": true },
+    { "name": "avg_pressure_secondary_kpa", "type": "double", "note": "Compressor: suction, EXV: outlet", "nullable": true },
+
+    { "name": "avg_current_a", "type": "double", "note": "Current Trend chart — Compressor: current_a, Condenser: fan_current_a, Evaporator: pump_current_a", "nullable": true },
+    { "name": "max_current_a", "type": "double", "nullable": true },
+
+    { "name": "avg_voltage_v", "type": "double", "nullable": true },
+    { "name": "avg_vibration_mm_s", "type": "double", "note": "Compressor only", "nullable": true }
+  ]
+}

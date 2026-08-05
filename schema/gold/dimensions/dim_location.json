@@ -1,0 +1,23 @@
+{
+  "table": "dim_location",
+  "layer": "gold",
+  "grain": "one row per location version (SCD2)",
+  "note": "Formerly dim_plant. Renamed plant → location throughout.",
+  "columns": [
+    { "name": "location_key", "type": "bigint", "key": "PK" },
+    { "name": "location_id", "type": "string", "key": "natural key" },
+    { "name": "location_name", "type": "string", "note": "e.g. Marriott Downtown NYC, Amazon JFK8 Fulfillment" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company" },
+    { "name": "city", "type": "string", "note": "e.g. New York, Chicago, Dubai" },
+    { "name": "state", "type": "string", "note": "e.g. NY, IL, TX. Nullable for international locations", "nullable": true },
+    { "name": "country", "type": "string", "note": "e.g. USA, UAE" },
+    { "name": "building", "type": "string" },
+    { "name": "floor", "type": "string" },
+    { "name": "zone", "type": "string" },
+    { "name": "latitude", "type": "double" },
+    { "name": "longitude", "type": "double" },
+    { "name": "effective_from", "type": "timestamp" },
+    { "name": "effective_to", "type": "timestamp", "nullable": true },
+    { "name": "is_current", "type": "boolean" }
+  ]
+}

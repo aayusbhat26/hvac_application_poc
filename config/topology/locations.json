@@ -1,0 +1,74 @@
+[
+  {
+    "locationId": "LOC-01",
+    "companyId": "CUST-01",
+    "locationName": "Marriott Downtown NYC",
+    "city": "New York",
+    "state": "NY",
+    "country": "USA"
+  },
+  {
+    "locationId": "LOC-02",
+    "companyId": "CUST-01",
+    "locationName": "Marriott Chicago Loop",
+    "city": "Chicago",
+    "state": "IL",
+    "country": "USA"
+  },
+  {
+    "locationId": "LOC-03",
+    "companyId": "CUST-02",
+    "locationName": "Amazon JFK8 Fulfillment",
+    "city": "Staten Island",
+    "state": "NY",
+    "country": "USA"
+  },
+  {
+    "locationId": "LOC-04",
+    "companyId": "CUST-02",
+    "locationName": "Amazon BFI4",
+    "city": "Kent",
+    "state": "WA",
+    "country": "USA"
+  },
+  {
+    "locationId": "LOC-05",
+    "companyId": "CUST-03",
+    "locationName": "Samsung Austin Semiconductor",
+    "city": "Austin",
+    "state": "TX",
+    "country": "USA"
+  },
+  {
+    "locationId": "LOC-06",
+    "companyId": "CUST-04",
+    "locationName": "JPM HQ",
+    "city": "New York",
+    "state": "NY",
+    "country": "USA"
+  },
+  {
+    "locationId": "LOC-07",
+    "companyId": "CUST-04",
+    "locationName": "JPM Columbus",
+    "city": "Columbus",
+    "state": "OH",
+    "country": "USA"
+  },
+  {
+    "locationId": "LOC-08",
+    "companyId": "CUST-05",
+    "locationName": "DXB Terminal 3",
+    "city": "Dubai",
+    "state": "",
+    "country": "UAE"
+  },
+  {
+    "locationId": "LOC-09",
+    "companyId": "CUST-06",
+    "locationName": "Mayo Clinic Rochester",
+    "city": "Rochester",
+    "state": "MN",
+    "country": "USA"
+  }
+]

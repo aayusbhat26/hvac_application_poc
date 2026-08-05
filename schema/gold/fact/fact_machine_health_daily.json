@@ -5,13 +5,16 @@
   "partitionBy": ["date_key"],
   "columns": [
     { "name": "date_key", "type": "date" },
-    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
-    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
     { "name": "computed_health_score", "type": "double" },
-    { "name": "health_status_mode", "type": "string" },
+    { "name": "health_status_mode", "type": "string", "note": "Healthy | Warning | Critical | Fault" },
     { "name": "fault_count", "type": "int" },
     { "name": "critical_fault_count", "type": "int" },
     { "name": "maintenance_flag_any", "type": "boolean" },
-    { "name": "components_reporting", "type": "int" }
+    { "name": "components_reporting", "type": "int" },
+    { "name": "total_run_hours", "type": "double", "note": "Cumulative run hours snapshot for the HVAC Machines page" },
+    { "name": "last_data_timestamp", "type": "timestamp", "note": "Most recent telemetry timestamp received, for 'Updated Xs ago'" }
   ]
 }

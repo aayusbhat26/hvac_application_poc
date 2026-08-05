@@ -1,0 +1,20 @@
+{
+  "table": "kpi_location_energy_daily",
+  "layer": "gold",
+  "grain": "one row per location per day",
+  "note": "Formerly kpi_plant_energy_daily. Renamed plant → location.",
+  "partitionBy": ["date_key"],
+  "columns": [
+    { "name": "date_key", "type": "date" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
+    { "name": "total_power_consumption_kwh", "type": "double" },
+    { "name": "compressor_power_kwh", "type": "double" },
+    { "name": "condenser_fan_power_kwh", "type": "double" },
+    { "name": "pump_power_kwh", "type": "double" },
+    { "name": "energy_target_kwh", "type": "double", "note": "Target line value for Energy Consumption Trend chart" },
+    { "name": "baseline_energy_kwh", "type": "double", "note": "Baseline for savings calculation in Energy Report" },
+    { "name": "estimated_energy_cost", "type": "double", "nullable": true },
+    { "name": "carbon_estimate_kg", "type": "double", "nullable": true }
+  ]
+}

@@ -5,8 +5,13 @@
   "columns": [
     { "name": "hvac_machine_key", "type": "bigint", "key": "PK" },
     { "name": "hvac_machine_id", "type": "string", "key": "natural key" },
-    { "name": "hvac_machine_name", "type": "string" },
+    { "name": "hvac_machine_name", "type": "string", "note": "e.g. CH-01 Trane CenTraVac" },
+    { "name": "manufacturer", "type": "string", "note": "e.g. Trane, Carrier, Daikin, York, McQuay" },
+    { "name": "model", "type": "string", "note": "e.g. CVHE 1200, 19XR-1000, WME-800, YVAA-1800" },
+    { "name": "max_design_capacity_tr", "type": "double", "note": "Static denominator for Capacity Utilization %" },
     { "name": "controller_key", "type": "bigint", "key": "FK -> dim_controller" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location (denormalized)" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
     { "name": "effective_from", "type": "timestamp" },
     { "name": "effective_to", "type": "timestamp", "nullable": true },
     { "name": "is_current", "type": "boolean" }

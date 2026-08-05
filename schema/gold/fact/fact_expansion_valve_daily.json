@@ -5,9 +5,10 @@
   "partitionBy": ["date_key"],
   "columns": [
     { "name": "date_key", "type": "date" },
-    { "name": "component_key", "type": "bigint", "key": "FK" },
-    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
-    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
     { "name": "readings_count", "type": "int" },
     { "name": "uptime_pct", "type": "double" },
     { "name": "avg_valve_opening_pct", "type": "double" },

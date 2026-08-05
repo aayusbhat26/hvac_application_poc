@@ -1,9 +1,11 @@
 {
-  "table": "kpi_plant_performance_summary",
+  "table": "kpi_location_performance_summary",
   "layer": "gold",
-  "grain": "one row per plant per reporting period",
+  "grain": "one row per location per reporting period",
+  "note": "Formerly kpi_plant_performance_summary. Renamed plant → location.",
   "columns": [
-    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
     { "name": "period_start", "type": "date" },
     { "name": "period_end", "type": "date" },
     { "name": "avg_uptime_pct", "type": "double" },

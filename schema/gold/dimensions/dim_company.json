@@ -6,6 +6,8 @@
     { "name": "company_key", "type": "bigint", "key": "PK" },
     { "name": "company_id", "type": "string", "key": "natural key" },
     { "name": "company_name", "type": "string" },
+    { "name": "industry", "type": "string", "note": "Hospitality | Logistics | Manufacturing | Finance | Aviation | Healthcare" },
+    { "name": "account_type", "type": "string", "note": "Enterprise | SMB" },
     { "name": "effective_from", "type": "timestamp" },
     { "name": "effective_to", "type": "timestamp", "nullable": true },
     { "name": "is_current", "type": "boolean" }

@@ -4,16 +4,20 @@
   "grain": "one row per fault occurrence, start to resolution",
   "columns": [
     { "name": "fault_event_id", "type": "string", "key": "PK" },
-    { "name": "component_key", "type": "bigint", "key": "FK" },
-    { "name": "fault_code_key", "type": "bigint", "key": "FK" },
-    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
-    { "name": "plant_key", "type": "bigint", "key": "FK" },
+    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
+    { "name": "fault_code_key", "type": "bigint", "key": "FK -> dim_fault_code" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
     { "name": "start_timestamp", "type": "timestamp" },
     { "name": "end_timestamp", "type": "timestamp", "nullable": true },
     { "name": "duration_hours", "type": "double" },
     { "name": "consecutive_days_reproduced", "type": "int" },
+    { "name": "fault_detail_message", "type": "string", "note": "Human-readable detail, e.g. 'High discharge temperature — 124°C exceeds limit of 110°C'" },
+    { "name": "severity", "type": "string", "note": "Denormalized from dim_fault_code: LOW | MEDIUM | HIGH | CRITICAL" },
+    { "name": "root_cause", "type": "string", "nullable": true, "note": "e.g. Condenser fouling, Refrigerant leak" },
     { "name": "report_generated", "type": "boolean" },
     { "name": "report_id", "type": "string", "nullable": true },
-    { "name": "status", "type": "string", "note": "OPEN | CLOSED" }
+    { "name": "status", "type": "string", "note": "ACTIVE | RESOLVED | ACKNOWLEDGED" }
   ]
 }

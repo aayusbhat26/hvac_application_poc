@@ -5,12 +5,16 @@
   "partitionBy": ["date_key"],
   "columns": [
     { "name": "date_key", "type": "date" },
-    { "name": "hvac_machine_key", "type": "bigint", "key": "FK" },
-    { "name": "plant_key", "type": "bigint", "key": "FK" },
-    { "name": "total_power_consumption_kw", "type": "double", "note": "sum across all 4 components" },
+    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
+    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
+    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
+    { "name": "total_power_consumption_kw", "type": "double", "note": "sum across all components" },
     { "name": "cooling_capacity_tr", "type": "double" },
     { "name": "overall_cop", "type": "double" },
     { "name": "overall_eer", "type": "double" },
-    { "name": "energy_per_ton_kw", "type": "double" }
+    { "name": "energy_per_ton_kw", "type": "double" },
+    { "name": "efficiency_pct", "type": "double", "note": "Actual efficiency vs design, for Analytics 'Machine Efficiency by Site' chart" },
+    { "name": "target_cop", "type": "double", "note": "Target COP for the dashed target line on Analytics charts" },
+    { "name": "target_efficiency_pct", "type": "double", "note": "e.g. 90%, for the Analytics efficiency target line" }
   ]
 }

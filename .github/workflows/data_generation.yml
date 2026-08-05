@@ -62,6 +62,24 @@ jobs:
             --input-dir data/batch/raw \
             --output-dir data/batch/bronze
 
+      - name: Process Bronze to Staging
+        run: |
+          python scripts/bronze_to_staging.py \
+            --input-dir data/batch/bronze \
+            --output-dir data/batch/staging
+
+      - name: Process Staging to Silver
+        run: |
+          python scripts/staging_to_silver.py \
+            --input-dir data/batch/staging \
+            --output-dir data/batch/silver
+
+      - name: Process Silver to Gold (Dimensions & Facts)
+        run: |
+          python scripts/silver_to_gold.py \
+            --input-dir data/batch/silver \
+            --output-dir data/batch/gold
+
       - name: Update Watermark Locally
         run: |
           python scripts/manage_watermark.py --action update --date $TARGET_DATE

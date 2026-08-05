@@ -4,9 +4,10 @@
   "timestamp": "ISO8601",
   "dataQuality": "GOOD | PARTIAL | STALE",
   "company": { "companyId": "string", "companyName": "string" },
-  "plant": {
-    "plantId": "string", "plantName": "string",
+  "location": {
+    "locationId": "string", "locationName": "string",
     "building": "string", "floor": "string", "zone": "string",
+    "city": "string", "state": "string", "country": "string",
     "latitude": "number", "longitude": "number"
   },
   "controller": { "controllerId": "string", "controllerName": "string" },
