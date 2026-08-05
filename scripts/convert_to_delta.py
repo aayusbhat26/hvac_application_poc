@@ -40,8 +40,18 @@ def process_files(input_dir, output_dir):
                 continue
                 
             # Flatten the records and add some batch-level metadata if needed
-            # For bronze, we usually just want the records + a partition column
             df = pd.DataFrame(records)
+            
+            # Inject required metadata from the batch envelope
+            meta_fields = [
+                "companyId", "companyName", "locationId", "locationName", 
+                "locationCity", "locationState", "locationCountry", 
+                "hvacMachineId", "componentId", "componentType", 
+                "batchId", "uploadedBy", "sourceFileName", "circuitId"
+            ]
+            for field in meta_fields:
+                if field in batch_data:
+                    df[field] = batch_data[field]
             
             # Ensure timestamp is an integer
             df['timestamp'] = df['timestamp'].astype('int64')
