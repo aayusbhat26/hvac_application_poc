@@ -44,9 +44,9 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           if [ -n "${{ github.event.inputs.start_date }}" ]; then
-            python scripts/manage_watermark.py --action check --input-date "${{ github.event.inputs.start_date }}"
+            python scripts/manage_watermark.py --action check --input-date "${{ github.event.inputs.start_date }}" --days "${{ github.event.inputs.days_to_generate || '1' }}"
           else
-            python scripts/manage_watermark.py --action check
+            python scripts/manage_watermark.py --action check --days "${{ github.event.inputs.days_to_generate || '1' }}"
           fi
 
       - name: Generate Raw JSON Data
@@ -82,7 +82,7 @@ jobs:
 
       - name: Update Watermark Locally
         run: |
-          python scripts/manage_watermark.py --action update --date $TARGET_DATE
+          python scripts/manage_watermark.py --action update --date $END_DATE --start-date $TARGET_DATE --days $GENERATED_DAYS
 
       - name: Upload to Hugging Face Bucket
         env:
