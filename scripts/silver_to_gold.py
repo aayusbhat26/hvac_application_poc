@@ -73,13 +73,13 @@ def process_silver_to_gold(input_dir, output_dir):
         # dim_date
         dates = pd.to_datetime(combined_df['date'].unique())
         dim_date = pd.DataFrame({
-            'date': dates.dt.strftime('%Y-%m-%d'),
-            'year': dates.dt.year,
-            'quarter': dates.dt.quarter,
-            'month': dates.dt.month,
-            'day': dates.dt.day,
-            'day_of_week': dates.dt.dayofweek,
-            'is_weekend': dates.dt.dayofweek >= 5
+            'date': dates.strftime('%Y-%m-%d'),
+            'year': dates.year,
+            'quarter': dates.quarter,
+            'month': dates.month,
+            'day': dates.day,
+            'day_of_week': dates.dayofweek,
+            'is_weekend': dates.dayofweek >= 5
         })
         write_deltalake(os.path.join(output_dir, "dim_date"), dim_date, mode="overwrite", schema_mode="overwrite")
         print("Successfully wrote dim_date")
