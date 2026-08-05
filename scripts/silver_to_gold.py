@@ -48,6 +48,19 @@ def process_silver_to_gold(input_dir, output_dir):
                 dt = DeltaTable(silver_path)
                 df = dt.to_pandas()
                 df['component_type'] = comp
+                
+                # Cast all possible metric columns to numeric (float) to avoid aggregation TypeErrors
+                numeric_cols = [
+                    'power_consumption_kw', 'run_hours', 'start_stop_count', 'cop', 'eer',
+                    'vibration_mm_s', 'suction_temperature_c', 'discharge_temperature_c', 'suction_pressure_kpa', 'discharge_pressure_kpa',
+                    'water_inlet_temperature_c', 'water_outlet_temperature_c', 'fan_speed_rpm', 'heat_rejection_efficiency_pct', 'approach_temperature_c',
+                    'cooling_capacity_tr', 'entering_chilled_water_temperature_c', 'leaving_chilled_water_temperature_c', 'heat_transfer_efficiency_pct',
+                    'valve_opening_pct', 'superheat_c', 'subcooling_c', 'refrigerant_flow_rate_kg_min'
+                ]
+                for col in numeric_cols:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                        
                 silver_data[comp] = df
             except Exception as e:
                 print(f"Error reading silver table {comp}: {e}")
