@@ -271,18 +271,19 @@ def walk(value, lo, hi, std, rng):
     new_value = value + rng.gauss(0, std)
     return max(lo, min(hi, new_value))
 
-def maybe_start_fault(component_type, state, rng, daily_fault_probability):
+def maybe_start_fault_tick(component_type, state, rng, daily_fault_probability, ticks_per_day):
     if state["fault_active"]:
         return
-    if rng.random() < daily_fault_probability:
+    per_tick_prob = daily_fault_probability / ticks_per_day
+    if rng.random() < per_tick_prob:
         state["fault_active"] = True
         state["fault_code"] = rng.choice(FAULT_CODES[component_type])
-        state["fault_days_remaining"] = rng.randint(2, 5)
+        state["fault_ticks_remaining"] = rng.randint(24, ticks_per_day * 5)
 
-def tick_fault_day(state):
+def tick_fault(state):
     if state["fault_active"]:
-        state["fault_days_remaining"] -= 1
-        if state["fault_days_remaining"] <= 0:
+        state["fault_ticks_remaining"] -= 1
+        if state["fault_ticks_remaining"] <= 0:
             state["fault_active"] = False
             state["fault_code"] = None
 
@@ -362,7 +363,7 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
 
     if component_type == "compressor":
         reading["startStopCount"] = str(state["start_stop_count"])
-        is_critically_faulted = state["fault_active"] and state["fault_days_remaining"] <= 1
+        is_critically_faulted = state["fault_active"] and state.get("fault_ticks_remaining", 0) <= 288
         reading["runStatus"] = 0 if (reading["compressorStatus"] == "OFF" or is_critically_faulted) else 1
 
     if component_type == "expansion_valve":
@@ -380,7 +381,7 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
     reading["healthActiveFaultCode"] = state["fault_code"]
     reading["healthMaintenanceFlag"] = state["fault_active"]
     reading["healthStatus"] = (
-        "Critical" if state["fault_active"] and state["fault_days_remaining"] <= 1
+        "Critical" if state["fault_active"] and state.get("fault_ticks_remaining", 0) <= 288
         else "Warning" if state["fault_active"]
         else "Healthy"
     )
@@ -401,21 +402,19 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
 def generate_device_day_batch(component_type, device_id, machine,
                                day, state, rng, interval_minutes, dropout_probability,
                                daily_fault_probability, circuit_id=None):
-    maybe_start_fault(component_type, state, rng, daily_fault_probability)
-
     day_start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
     ticks = (24 * 60) // interval_minutes
 
     records = []
     for i in range(ticks):
+        maybe_start_fault_tick(component_type, state, rng, daily_fault_probability, ticks)
         ts = day_start + timedelta(minutes=i * interval_minutes)
         ts_ms = int(ts.timestamp() * 1000)
         records.append(
             generate_reading(component_type, state, ts_ms, rng, dropout_probability,
                               interval_minutes, circuit_id=circuit_id)
         )
-
-    tick_fault_day(state)
+        tick_fault(state)
 
     upload_ts_ms = int((day_start + timedelta(days=1)).timestamp() * 1000)
     batch_id = f"batch-{device_id}-{day.strftime('%Y%m%d')}"

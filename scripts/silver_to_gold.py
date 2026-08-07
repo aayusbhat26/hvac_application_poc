@@ -108,7 +108,11 @@ def process_silver_to_gold(input_dir, output_dir):
         critical_readings=('health_status', lambda x: (x == 'Critical').sum()),
         warning_readings=('health_status', lambda x: (x == 'Warning').sum())
     ).reset_index()
-    health_daily['health_score_pct'] = 100.0 - (health_daily['critical_readings'] / health_daily['total_readings'] * 100.0)
+    health_daily['health_score_pct'] = (
+        100.0 - 
+        (health_daily['critical_readings'] / health_daily['total_readings'] * 100.0) -
+        (health_daily['warning_readings'] / health_daily['total_readings'] * 50.0)
+    ).clip(lower=0.0)
     write_deltalake(os.path.join(output_dir, "fact_component_health_daily"), health_daily, mode="overwrite", partition_by=["date"], schema_mode="overwrite")
 
     # fact_energy_consumption_daily
