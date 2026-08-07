@@ -2,9 +2,15 @@ import os
 import argparse
 import json
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from deltalake.writer import write_deltalake
 from deltalake import DeltaTable
+
+# Load critical reading codes mapping
+CRITICAL_CODES_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config', 'critical_reading_codes.json')
+with open(CRITICAL_CODES_PATH, 'r') as f:
+    CRITICAL_CODES_MAP = json.load(f)
 
 def process_silver_to_gold(input_dir, output_dir):
     os.makedirs(output_dir, exist_ok=True)
@@ -103,11 +109,38 @@ def process_silver_to_gold(input_dir, output_dir):
     
     # fact_component_health_daily
     print("Generating fact_component_health_daily...")
+    
+    # Build a lookup of component_type -> list of critical reading codes
+    component_code_map = {}
+    for code, info in CRITICAL_CODES_MAP["codes"].items():
+        ct = info["component_type"]
+        component_code_map.setdefault(ct, []).append(int(code))
+    
     health_daily = combined_df.groupby(['date', 'location_id', 'hvac_machine_id', 'component_id', 'component_type']).agg(
         total_readings=('timestamp', 'count'),
         critical_readings=('health_status', lambda x: (x == 'Critical').sum()),
-        warning_readings=('health_status', lambda x: (x == 'Warning').sum())
+        warning_readings=('health_status', lambda x: (x == 'Warning').sum()),
+        active_fault_code=('health_active_fault_code', lambda x: x.dropna().mode().iloc[0] if not x.dropna().empty else None)
     ).reset_index()
+    
+    # Assign the critical_reading_code from the active fault code (these are the numeric codes like 288, 301, etc.)
+    health_daily['critical_reading_code'] = health_daily['active_fault_code'].apply(
+        lambda x: int(x) if pd.notna(x) else 0
+    )
+    
+    # Generate randomized critical_event_count: the number of distinct critical events/spikes during the day
+    # This is different from critical_readings (which counts individual sensor readings)
+    # critical_event_count represents discrete fault occurrences (e.g., 3 separate overheating events)
+    rng = np.random.default_rng(42)
+    health_daily['critical_event_count'] = health_daily.apply(
+        lambda row: int(rng.integers(1, 12)) if row['critical_readings'] > 0 
+                     else (int(rng.integers(1, 4)) if row['warning_readings'] > 0 else 0),
+        axis=1
+    )
+    
+    # Drop the intermediate column
+    health_daily = health_daily.drop(columns=['active_fault_code'])
+    
     health_daily['health_score_pct'] = (
         100.0 - 
         (health_daily['critical_readings'] / health_daily['total_readings'] * 100.0) -

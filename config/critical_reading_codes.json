@@ -1,0 +1,152 @@
+{
+    "version": "1.0.0",
+    "description": "Critical Reading Code Reference for HVAC Monitoring System. Each numeric code maps to a specific fault type, severity, and affected component category.",
+    "codes": {
+        "288": {
+            "fault_id": "CMP-HIGH-DISCH-TEMP",
+            "label": "High Discharge Temperature",
+            "component_type": "compressor",
+            "severity": "CRITICAL",
+            "description": "Compressor discharge temperature exceeds safe operating threshold (>80°C). Risk of refrigerant breakdown and compressor seizure.",
+            "recommended_action": "Immediate shutdown and inspection. Check condenser performance, refrigerant charge, and expansion valve."
+        },
+        "301": {
+            "fault_id": "CMP-LOW-OIL-PRESS",
+            "label": "Low Oil Pressure",
+            "component_type": "compressor",
+            "severity": "CRITICAL",
+            "description": "Compressor oil pressure dropped below minimum safe level (<260 kPa). Bearing damage imminent.",
+            "recommended_action": "Stop compressor immediately. Check oil level, oil filter, and oil pump."
+        },
+        "315": {
+            "fault_id": "CMP-HIGH-VIBRATION",
+            "label": "Excessive Vibration",
+            "component_type": "compressor",
+            "severity": "CRITICAL",
+            "description": "Compressor vibration exceeds safe threshold (>4.5 mm/s). Potential mechanical failure.",
+            "recommended_action": "Schedule emergency maintenance. Inspect bearings, coupling alignment, and mounting bolts."
+        },
+        "420": {
+            "fault_id": "CND-FAN-FAULT",
+            "label": "Condenser Fan Failure",
+            "component_type": "condenser",
+            "severity": "CRITICAL",
+            "description": "One or more condenser fans have stopped operating. Heat rejection capacity severely reduced.",
+            "recommended_action": "Replace failed fan motor. Check wiring, contactors, and thermal overloads."
+        },
+        "435": {
+            "fault_id": "CND-HIGH-APPROACH-TEMP",
+            "label": "High Approach Temperature",
+            "component_type": "condenser",
+            "severity": "WARNING",
+            "description": "Condenser approach temperature exceeds 5°C above design. Fouling or airflow restriction suspected.",
+            "recommended_action": "Clean condenser coils, check fan operation, verify airflow path is unobstructed."
+        },
+        "442": {
+            "fault_id": "CND-LOW-WATER-FLOW",
+            "label": "Low Condenser Water Flow",
+            "component_type": "condenser",
+            "severity": "CRITICAL",
+            "description": "Condenser water flow rate dropped below minimum requirement. Overheating risk.",
+            "recommended_action": "Check condenser water pump, strainer, and isolation valves."
+        },
+        "510": {
+            "fault_id": "EVP-FLOW-SWITCH-OPEN",
+            "label": "Evaporator Flow Switch Open",
+            "component_type": "evaporator",
+            "severity": "CRITICAL",
+            "description": "Chilled water flow has stopped or dropped below minimum threshold. Freeze risk on evaporator tubes.",
+            "recommended_action": "Check chilled water pump, flow switch calibration, and piping for blockage."
+        },
+        "525": {
+            "fault_id": "EVP-LOW-LWT",
+            "label": "Low Leaving Water Temperature",
+            "component_type": "evaporator",
+            "severity": "WARNING",
+            "description": "Leaving chilled water temperature below setpoint by >2°C. Potential freeze condition.",
+            "recommended_action": "Check load conditions, capacity staging, and temperature sensor calibration."
+        },
+        "538": {
+            "fault_id": "EVP-PUMP-TRIP",
+            "label": "Evaporator Pump Trip",
+            "component_type": "evaporator",
+            "severity": "CRITICAL",
+            "description": "Primary chilled water pump has tripped on overload or fault.",
+            "recommended_action": "Reset pump, check motor windings, verify electrical supply."
+        },
+        "610": {
+            "fault_id": "EXV-LOW-SUPERHEAT",
+            "label": "Low Superheat",
+            "component_type": "expansion_valve",
+            "severity": "WARNING",
+            "description": "Superheat has dropped below 3°C. Risk of liquid refrigerant slugging the compressor.",
+            "recommended_action": "Check expansion valve controller, verify sensor placement, inspect valve actuator."
+        },
+        "625": {
+            "fault_id": "EXV-STUCK-VALVE",
+            "label": "Stuck Expansion Valve",
+            "component_type": "expansion_valve",
+            "severity": "CRITICAL",
+            "description": "Electronic expansion valve is not responding to control signals. Refrigerant flow unregulated.",
+            "recommended_action": "Cycle valve power, replace stepper motor if unresponsive, check controller board."
+        },
+        "640": {
+            "fault_id": "EXV-HIGH-SUBCOOLING",
+            "label": "High Subcooling",
+            "component_type": "expansion_valve",
+            "severity": "WARNING",
+            "description": "Subcooling exceeds 12°C indicating possible valve restriction or overcharge.",
+            "recommended_action": "Verify refrigerant charge, check valve position, inspect for blockage."
+        }
+    },
+    "severity_levels": {
+        "CRITICAL": {
+            "priority": 1,
+            "color": "#FF0000",
+            "description": "Immediate attention required. Equipment damage or safety risk.",
+            "sla_response_hours": 1
+        },
+        "WARNING": {
+            "priority": 2,
+            "color": "#FFA500",
+            "description": "Degraded performance. Schedule maintenance within 24-48 hours.",
+            "sla_response_hours": 24
+        },
+        "INFO": {
+            "priority": 3,
+            "color": "#2196F3",
+            "description": "Informational alert. Monitor trend over next few days.",
+            "sla_response_hours": 72
+        }
+    },
+    "health_score_thresholds": {
+        "healthy": {
+            "min": 90,
+            "max": 100,
+            "label": "Healthy",
+            "color": "#4CAF50",
+            "description": "Equipment operating within normal parameters."
+        },
+        "needs_check": {
+            "min": 70,
+            "max": 89.99,
+            "label": "Needs Check",
+            "color": "#FFC107",
+            "description": "Equipment healthy but showing early signs of degradation. Schedule preventive check."
+        },
+        "warning": {
+            "min": 40,
+            "max": 69.99,
+            "label": "Warning",
+            "color": "#FF9800",
+            "description": "Equipment performance degraded. Maintenance required soon."
+        },
+        "critical": {
+            "min": 0,
+            "max": 39.99,
+            "label": "Critical",
+            "color": "#F44336",
+            "description": "Equipment in critical condition. Immediate maintenance required."
+        }
+    }
+}

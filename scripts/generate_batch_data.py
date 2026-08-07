@@ -165,10 +165,10 @@ def export_fleet_manifest(fleet, output_dir, current_date):
 # --------------------------------------------------------------------------
 
 FAULT_CODES = {
-    "compressor": ["CMP-HIGH-DISCH-TEMP", "CMP-LOW-OIL-PRESS", "CMP-HIGH-VIBRATION"],
-    "condenser": ["CND-FAN-FAULT", "CND-HIGH-APPROACH-TEMP", "CND-LOW-WATER-FLOW"],
-    "evaporator": ["EVP-FLOW-SWITCH-OPEN", "EVP-LOW-LWT", "EVP-PUMP-TRIP"],
-    "expansion_valve": ["EXV-LOW-SUPERHEAT", "EXV-STUCK-VALVE", "EXV-HIGH-SUBCOOLING"],
+    "compressor": [288, 301, 315],
+    "condenser": [420, 435, 442],
+    "evaporator": [510, 525, 538],
+    "expansion_valve": [610, 625, 640],
 }
 
 COMPRESSOR_FIELDS = {
