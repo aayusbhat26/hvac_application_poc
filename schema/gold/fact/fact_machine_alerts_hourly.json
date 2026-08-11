@@ -1,0 +1,15 @@
+{
+  "table": "fact_machine_alerts_hourly",
+  "layer": "gold",
+  "grain": "one row per HVAC machine per hour",
+  "partitionBy": ["date"],
+  "columns": [
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "hour", "type": "int64", "note": "0-23" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "total_critical_alerts", "type": "int64" },
+    { "name": "total_warning_alerts", "type": "int64" },
+    { "name": "unique_fault_codes", "type": "int64" }
+  ]
+}

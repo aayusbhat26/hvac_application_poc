@@ -1,0 +1,19 @@
+{
+  "table": "fact_energy_consumption_hourly",
+  "layer": "gold",
+  "grain": "one row per component per hour",
+  "partitionBy": ["date"],
+  "columns": [
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "hour", "type": "int64", "note": "0-23" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_id", "type": "string", "key": "FK -> dim_component" },
+    { "name": "component_type", "type": "string" },
+    { "name": "avg_power_kw", "type": "double" },
+    { "name": "max_power_kw", "type": "double" },
+    { "name": "min_power_kw", "type": "double" },
+    { "name": "total_readings", "type": "int64" },
+    { "name": "hourly_energy_kwh", "type": "double", "note": "Energy consumed in that hour (kWh)" }
+  ]
+}

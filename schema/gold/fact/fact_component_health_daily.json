@@ -2,20 +2,19 @@
   "table": "fact_component_health_daily",
   "layer": "gold",
   "grain": "one row per component per day",
-  "note": "NEW TABLE — needed for Machine Details page (Screenshot 6) to show per-component health scores",
-  "partitionBy": ["date_key"],
+  "partitionBy": ["date"],
+  "note": "Primary health monitoring table for the dashboard. Health score is penalized by critical (100%) and warning (50%) readings.",
   "columns": [
-    { "name": "date_key", "type": "date" },
-    { "name": "component_key", "type": "bigint", "key": "FK -> dim_component" },
-    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
-    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
-    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
-    { "name": "component_type", "type": "string", "note": "Denormalized: condenser | evaporator | compressor | expansion_valve" },
-    { "name": "health_score", "type": "double", "note": "0-100 score shown on Machine Details component cards" },
-    { "name": "health_status", "type": "string", "note": "Healthy | Warning | Critical | Fault — badge on component card" },
-    { "name": "device_status", "type": "string", "note": "Running | Stopped | Fault — shown on Component Details page" },
-    { "name": "fault_count", "type": "int" },
-    { "name": "is_online", "type": "boolean", "note": "Whether the device is currently sending data" },
-    { "name": "last_data_timestamp", "type": "timestamp", "note": "Most recent reading, for 'Last data: 2s ago'" }
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_id", "type": "string", "key": "FK -> dim_component" },
+    { "name": "component_type", "type": "string", "note": "Denormalized: compressor | condenser | evaporator | expansion_valve" },
+    { "name": "total_readings", "type": "int64", "note": "Total sensor readings that day (288 = full day at 5-min intervals)" },
+    { "name": "critical_readings", "type": "int64", "note": "Count of readings where health_status was 'Critical'" },
+    { "name": "warning_readings", "type": "int64", "note": "Count of readings where health_status was 'Warning'" },
+    { "name": "critical_reading_code", "type": "int64", "note": "Numeric fault code (e.g. 288 = High Discharge Temperature). Maps to config/critical_reading_codes.json. 0 = no fault." },
+    { "name": "critical_event_count", "type": "int64", "note": "Number of discrete fault events/spikes during the day" },
+    { "name": "health_score_pct", "type": "double", "note": "0-100%. Formula: 100 - (critical/total*100) - (warning/total*50), clamped at 0" }
   ]
 }

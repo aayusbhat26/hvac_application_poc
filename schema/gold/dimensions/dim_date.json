@@ -1,0 +1,16 @@
+{
+  "table": "dim_date",
+  "layer": "gold",
+  "grain": "one row per calendar date",
+  "writeMode": "append",
+  "note": "New dates are appended incrementally — existing dates are never overwritten",
+  "columns": [
+    { "name": "date", "type": "string", "key": "PK", "note": "Format: YYYY-MM-DD" },
+    { "name": "year", "type": "int64" },
+    { "name": "quarter", "type": "int64", "note": "1-4" },
+    { "name": "month", "type": "int64", "note": "1-12" },
+    { "name": "day", "type": "int64", "note": "1-31" },
+    { "name": "day_of_week", "type": "int64", "note": "0=Monday, 6=Sunday" },
+    { "name": "is_weekend", "type": "boolean" }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "table": "fact_expansion_valve_metrics_hourly",
+  "layer": "gold",
+  "grain": "one row per expansion valve per hour",
+  "partitionBy": ["date"],
+  "columns": [
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "hour", "type": "int64", "note": "0-23" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_id", "type": "string", "key": "FK -> dim_component" },
+    { "name": "avg_valve_opening_pct", "type": "double" },
+    { "name": "avg_superheat_c", "type": "double" },
+    { "name": "avg_subcooling_c", "type": "double" },
+    { "name": "avg_refrigerant_flow_rate_kg_min", "type": "double" }
+  ]
+}

@@ -1,19 +1,11 @@
 {
   "table": "dim_component",
   "layer": "gold",
-  "grain": "one row per component version (SCD2)",
+  "grain": "one row per component",
+  "source": "Derived from silver telemetry data, deduplicated by component_id",
   "columns": [
-    { "name": "component_key", "type": "bigint", "key": "PK" },
-    { "name": "component_id", "type": "string", "key": "natural key" },
-    { "name": "component_type", "type": "string" },
-    { "name": "component_name", "type": "string" },
-    { "name": "hvac_machine_key", "type": "bigint", "key": "FK -> dim_hvac_machine" },
-    { "name": "manufacturer", "type": "string" },
-    { "name": "model", "type": "string" },
-    { "name": "serial_number", "type": "string" },
-    { "name": "installation_date", "type": "date" },
-    { "name": "effective_from", "type": "timestamp" },
-    { "name": "effective_to", "type": "timestamp", "nullable": true },
-    { "name": "is_current", "type": "boolean" }
+    { "name": "component_id", "type": "string", "key": "PK (natural key)", "note": "e.g. COMP-0101A" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_type", "type": "string", "note": "compressor | condenser | evaporator | expansion_valve" }
   ]
 }

@@ -1,15 +1,12 @@
 {
   "table": "dim_company",
   "layer": "gold",
-  "grain": "one row per company version (SCD2)",
+  "grain": "one row per company",
+  "source": "config/topology/customers.json",
   "columns": [
-    { "name": "company_key", "type": "bigint", "key": "PK" },
-    { "name": "company_id", "type": "string", "key": "natural key" },
-    { "name": "company_name", "type": "string" },
+    { "name": "company_id", "type": "string", "key": "PK (natural key)", "note": "e.g. CUST-01" },
+    { "name": "company_name", "type": "string", "note": "e.g. Marriott International" },
     { "name": "industry", "type": "string", "note": "Hospitality | Logistics | Manufacturing | Finance | Aviation | Healthcare" },
-    { "name": "account_type", "type": "string", "note": "Enterprise | SMB" },
-    { "name": "effective_from", "type": "timestamp" },
-    { "name": "effective_to", "type": "timestamp", "nullable": true },
-    { "name": "is_current", "type": "boolean" }
+    { "name": "account_type", "type": "string", "note": "Enterprise | SMB" }
   ]
 }

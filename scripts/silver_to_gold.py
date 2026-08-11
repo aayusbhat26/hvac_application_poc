@@ -311,7 +311,134 @@ def process_silver_to_gold(input_dir, output_dir):
             valv_hourly = valv_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
             safe_write(os.path.join(output_dir, "fact_expansion_valve_metrics_hourly"), valv_hourly, partition_by=["date"])
 
-    print("\nAll Gold tables generated successfully!")
+    # ---------------------------------------------------------
+    # 6. KPI ROLLUPS (Fleet and Location levels)
+    # ---------------------------------------------------------
+    print("Generating KPI Rollups...")
+    
+    # 6a. Roll up health to the machine level first
+    if 'health_daily' in locals() and not health_daily.empty:
+        machine_health = health_daily.groupby(['date', 'location_id', 'hvac_machine_id']).agg(
+            total_readings=('total_readings', 'sum'),
+            critical_readings=('critical_readings', 'sum'),
+            warning_readings=('warning_readings', 'sum')
+        ).reset_index()
+        machine_health['machine_health_score'] = (
+            100.0 - 
+            (machine_health['critical_readings'] / machine_health['total_readings'] * 100.0) -
+            (machine_health['warning_readings'] / machine_health['total_readings'] * 50.0)
+        ).clip(lower=0.0)
+    else:
+        machine_health = pd.DataFrame()
+
+    # 6b. Fleet Summary KPI
+    fleet_kpi_dfs = []
+    for d in combined_df['date'].unique():
+        d_df = combined_df[combined_df['date'] == d]
+        total_locations = d_df['location_id'].nunique()
+        total_machines = d_df['hvac_machine_id'].nunique()
+        machines_online = total_machines # assuming all reporting are online
+        
+        healthy_count = warning_count = critical_count = 0
+        avg_health = 0.0
+        if not machine_health.empty:
+            mh_d = machine_health[machine_health['date'] == d]
+            if not mh_d.empty:
+                healthy_count = (mh_d['machine_health_score'] >= 90).sum()
+                warning_count = ((mh_d['machine_health_score'] >= 70) & (mh_d['machine_health_score'] < 90)).sum()
+                critical_count = (mh_d['machine_health_score'] < 70).sum()
+                avg_health = mh_d['machine_health_score'].mean()
+                
+        total_energy = 0.0
+        if 'energy_daily' in locals() and not energy_daily.empty:
+            ed_d = energy_daily[energy_daily['date'] == d]
+            if not ed_d.empty:
+                total_energy = ed_d['daily_energy_kwh'].sum()
+                
+        active_faults = 0
+        if 'alerts_daily' in locals() and not alerts_daily.empty:
+            ad_d = alerts_daily[alerts_daily['date'] == d]
+            if not ad_d.empty:
+                active_faults = ad_d['total_critical_alerts'].sum() + ad_d['total_warning_alerts'].sum()
+                
+        avg_cop = 0.0
+        if 'perf_daily' in locals() and not perf_daily.empty:
+            pd_d = perf_daily[perf_daily['date'] == d]
+            if not pd_d.empty and 'avg_cop' in pd_d.columns:
+                avg_cop = pd_d['avg_cop'].mean()
+                
+        fleet_kpi_dfs.append({
+            'date': d,
+            'total_locations': total_locations,
+            'total_machines': total_machines,
+            'machines_online': machines_online,
+            'healthy_count': healthy_count,
+            'warning_count': warning_count,
+            'critical_count': critical_count,
+            'avg_health_score': avg_health,
+            'total_energy_kwh': total_energy,
+            'avg_cop': avg_cop,
+            'active_fault_count': active_faults
+        })
+        
+    if fleet_kpi_dfs:
+        kpi_fleet_summary_daily = pd.DataFrame(fleet_kpi_dfs)
+        safe_write(os.path.join(output_dir, "KPI_Rollups/kpi_fleet_summary_daily"), kpi_fleet_summary_daily, partition_by=["date"])
+        
+    # 6c. Location Energy KPI
+    if 'energy_daily' in locals() and not energy_daily.empty:
+        # Pivot component_type to columns
+        loc_energy = energy_daily.groupby(['date', 'location_id', 'component_type'])['daily_energy_kwh'].sum().unstack(fill_value=0).reset_index()
+        
+        # Ensure columns exist even if some components are missing
+        for col in ['compressor', 'condenser', 'evaporator', 'expansion_valve']:
+            if col not in loc_energy.columns:
+                loc_energy[col] = 0.0
+                
+        # Calculate totals
+        loc_energy = loc_energy.rename(columns={
+            'compressor': 'compressor_power_kwh',
+            'condenser': 'condenser_fan_power_kwh',
+            'evaporator': 'pump_power_kwh',
+            'expansion_valve': 'valve_power_kwh'
+        })
+        loc_energy['total_power_consumption_kwh'] = loc_energy['compressor_power_kwh'] + loc_energy['condenser_fan_power_kwh'] + loc_energy['pump_power_kwh'] + loc_energy['valve_power_kwh']
+        safe_write(os.path.join(output_dir, "KPI_Rollups/kpi_location_energy_daily"), loc_energy, partition_by=["date"])
+
+    # 6d. Location Performance Summary KPI
+    if not machine_health.empty:
+        loc_health = machine_health.groupby(['date', 'location_id']).agg(
+            avg_health_score=('machine_health_score', 'mean'),
+            machines_count=('hvac_machine_id', 'nunique')
+        ).reset_index()
+        
+        loc_faults = pd.DataFrame(columns=['date', 'location_id', 'total_fault_events'])
+        if 'alerts_daily' in locals() and not alerts_daily.empty:
+            loc_faults = alerts_daily.groupby(['date', 'location_id']).agg(
+                total_fault_events=('unique_fault_codes', 'sum')
+            ).reset_index()
+            
+        loc_cop = pd.DataFrame(columns=['date', 'location_id', 'avg_location_cop'])
+        if 'perf_daily' in locals() and not perf_daily.empty and 'avg_cop' in perf_daily.columns:
+            loc_cop = perf_daily.groupby(['date', 'location_id']).agg(
+                avg_location_cop=('avg_cop', 'mean')
+            ).reset_index()
+            
+        # Merge them
+        kpi_loc_perf = loc_health
+        if not loc_faults.empty:
+            kpi_loc_perf = pd.merge(kpi_loc_perf, loc_faults, on=['date', 'location_id'], how='left').fillna(0)
+        else:
+            kpi_loc_perf['total_fault_events'] = 0
+            
+        if not loc_cop.empty:
+            kpi_loc_perf = pd.merge(kpi_loc_perf, loc_cop, on=['date', 'location_id'], how='left').fillna(0)
+        else:
+            kpi_loc_perf['avg_location_cop'] = 0.0
+            
+        safe_write(os.path.join(output_dir, "KPI_Rollups/kpi_location_performance_summary"), kpi_loc_perf, partition_by=["date"])
+
+    print("\nAll Gold tables (including KPIs) generated successfully!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

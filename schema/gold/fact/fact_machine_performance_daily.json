@@ -1,0 +1,15 @@
+{
+  "table": "fact_machine_performance_daily",
+  "layer": "gold",
+  "grain": "one row per HVAC machine per day",
+  "partitionBy": ["date"],
+  "columns": [
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "max_run_hours", "type": "double", "note": "Maximum accumulated run hours across components" },
+    { "name": "max_start_stops", "type": "double", "note": "Maximum start/stop cycle count" },
+    { "name": "avg_cop", "type": "double", "note": "Average Coefficient of Performance" },
+    { "name": "avg_eer", "type": "double", "note": "Average Energy Efficiency Ratio" }
+  ]
+}

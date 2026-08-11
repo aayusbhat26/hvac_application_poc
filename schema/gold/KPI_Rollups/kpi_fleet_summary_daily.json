@@ -2,21 +2,18 @@
   "table": "kpi_fleet_summary_daily",
   "layer": "gold",
   "grain": "one row per day for the entire fleet",
-  "note": "NEW TABLE — pre-aggregated fleet-level KPIs for the Dashboard top cards (Screenshot 1)",
-  "partitionBy": ["date_key"],
+  "partitionBy": ["date"],
   "columns": [
-    { "name": "date_key", "type": "date" },
-    { "name": "total_customers", "type": "int" },
-    { "name": "total_sites", "type": "int" },
-    { "name": "total_machines", "type": "int" },
-    { "name": "machines_online", "type": "int" },
-    { "name": "healthy_count", "type": "int", "note": "Machines with health score >= 90" },
-    { "name": "warning_count", "type": "int", "note": "Machines with health score 70-89" },
-    { "name": "critical_count", "type": "int", "note": "Machines with health score < 70" },
-    { "name": "avg_health_score", "type": "double", "note": "Fleet-wide average shown as 'AVG HEALTH' on Dashboard" },
-    { "name": "total_energy_kwh", "type": "double", "note": "Fleet-wide energy consumption for 'ENERGY TODAY'" },
-    { "name": "energy_target_kwh", "type": "double", "note": "Target for the dashed line on Energy Consumption Trend" },
-    { "name": "avg_cop", "type": "double", "note": "Fleet-wide average COP" },
-    { "name": "active_fault_count", "type": "int", "note": "'ACTIVE FAULTS' count on Dashboard" }
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "total_locations", "type": "int64" },
+    { "name": "total_machines", "type": "int64" },
+    { "name": "machines_online", "type": "int64" },
+    { "name": "healthy_count", "type": "int64" },
+    { "name": "warning_count", "type": "int64" },
+    { "name": "critical_count", "type": "int64" },
+    { "name": "avg_health_score", "type": "double" },
+    { "name": "total_energy_kwh", "type": "double" },
+    { "name": "avg_cop", "type": "double" },
+    { "name": "active_fault_count", "type": "int64" }
   ]
 }

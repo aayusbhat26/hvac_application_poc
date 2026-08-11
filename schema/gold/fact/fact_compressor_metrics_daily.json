@@ -1,0 +1,22 @@
+{
+  "table": "fact_compressor_metrics_daily",
+  "layer": "gold",
+  "grain": "one row per compressor per day",
+  "partitionBy": ["date"],
+  "columns": [
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_id", "type": "string", "key": "FK -> dim_component" },
+    { "name": "avg_vibration_mm_s", "type": "double" },
+    { "name": "max_vibration_mm_s", "type": "double" },
+    { "name": "avg_suction_temperature_c", "type": "double" },
+    { "name": "max_suction_temperature_c", "type": "double" },
+    { "name": "avg_discharge_temperature_c", "type": "double" },
+    { "name": "max_discharge_temperature_c", "type": "double" },
+    { "name": "avg_suction_pressure_kpa", "type": "double" },
+    { "name": "max_suction_pressure_kpa", "type": "double" },
+    { "name": "avg_discharge_pressure_kpa", "type": "double" },
+    { "name": "max_discharge_pressure_kpa", "type": "double" }
+  ]
+}

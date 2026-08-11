@@ -1,18 +1,14 @@
 {
   "table": "kpi_location_performance_summary",
   "layer": "gold",
-  "grain": "one row per location per reporting period",
-  "note": "Formerly kpi_plant_performance_summary. Renamed plant → location.",
+  "grain": "one row per location per day",
+  "partitionBy": ["date"],
   "columns": [
-    { "name": "location_key", "type": "bigint", "key": "FK -> dim_location" },
-    { "name": "company_key", "type": "bigint", "key": "FK -> dim_company (denormalized)" },
-    { "name": "period_start", "type": "date" },
-    { "name": "period_end", "type": "date" },
-    { "name": "avg_uptime_pct", "type": "double" },
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
     { "name": "avg_health_score", "type": "double" },
-    { "name": "total_fault_events", "type": "int" },
-    { "name": "total_reports_generated", "type": "int" },
-    { "name": "avg_fleet_cop", "type": "double" },
-    { "name": "machines_count", "type": "int" }
+    { "name": "machines_count", "type": "int64" },
+    { "name": "total_fault_events", "type": "int64" },
+    { "name": "avg_location_cop", "type": "double" }
   ]
 }

@@ -1,0 +1,17 @@
+{
+  "table": "fact_evaporator_metrics_hourly",
+  "layer": "gold",
+  "grain": "one row per evaporator per hour",
+  "partitionBy": ["date"],
+  "columns": [
+    { "name": "date", "type": "string", "key": "FK -> dim_date" },
+    { "name": "hour", "type": "int64", "note": "0-23" },
+    { "name": "location_id", "type": "string", "key": "FK -> dim_location" },
+    { "name": "hvac_machine_id", "type": "string", "key": "FK -> dim_hvac_machine" },
+    { "name": "component_id", "type": "string", "key": "FK -> dim_component" },
+    { "name": "avg_cooling_capacity_tr", "type": "double" },
+    { "name": "avg_entering_chilled_water_temperature_c", "type": "double" },
+    { "name": "avg_leaving_chilled_water_temperature_c", "type": "double" },
+    { "name": "avg_heat_transfer_efficiency_pct", "type": "double" }
+  ]
+}
