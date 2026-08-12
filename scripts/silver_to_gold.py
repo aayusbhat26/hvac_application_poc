@@ -45,7 +45,24 @@ def process_silver_to_gold(input_dir, output_dir):
         df_machine = pd.DataFrame(machines)
         df_machine = df_machine.rename(columns={'hvacMachineId': 'hvac_machine_id', 'locationId': 'location_id'})
         safe_write(os.path.join(output_dir, "dim_hvac_machine"), df_machine)
-        print("Successfully generated dim_company, dim_location, dim_hvac_machine")
+        
+        # Generate dim_fault_code
+        fault_rows = []
+        for code, info in CRITICAL_CODES_MAP["codes"].items():
+            fault_rows.append({
+                'fault_code_key': int(code),
+                'fault_code': str(code),
+                'component_type': info.get('component_type', ''),
+                'fault_description': info.get('label', ''),
+                'threshold_description': info.get('description', ''),
+                'severity': info.get('severity', ''),
+                'recommended_action': info.get('recommended_action', ''),
+                'is_active': True
+            })
+        df_fault_code = pd.DataFrame(fault_rows)
+        safe_write(os.path.join(output_dir, "dim_fault_code"), df_fault_code)
+        
+        print("Successfully generated dim_company, dim_location, dim_hvac_machine, dim_fault_code")
     except Exception as e:
         print(f"Error generating topology dimensions: {e}")
 

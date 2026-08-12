@@ -1,0 +1,15 @@
+{
+  "table": "dim_fault_code",
+  "layer": "gold",
+  "grain": "one row per fault code",
+  "columns": [
+    { "name": "fault_code_key", "type": "bigint", "key": "PK" },
+    { "name": "fault_code", "type": "string", "key": "natural key" },
+    { "name": "component_type", "type": "string" },
+    { "name": "fault_description", "type": "string", "note": "Short label, e.g. High discharge temperature" },
+    { "name": "threshold_description", "type": "string", "note": "Details with limits, e.g. 124°C exceeds limit of 110°C" },
+    { "name": "severity", "type": "string", "note": "LOW | MEDIUM | HIGH | CRITICAL" },
+    { "name": "recommended_action", "type": "string", "note": "e.g. Check compressor oil level and bearing condition", "nullable": true },
+    { "name": "is_active", "type": "boolean" }
+  ]
+}
