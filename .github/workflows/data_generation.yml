@@ -39,6 +39,12 @@ jobs:
           mkdir -p data/batch/bronze
           mkdir -p data/real_time
 
+      - name: Sync Existing Data from Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          hf sync hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch ./data/batch || true
+
       - name: Check Watermark
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}

@@ -139,8 +139,8 @@ def apply_quality_rules(df, rules):
 
     # 5. Future timestamp (with proper timezone buffer, using ms)
     if "timestamp" in df.columns:
-        # 48 hours in future
-        future_limit = int(time.time() * 1000) + (48 * 3600 * 1000)
+        # 365 days in future (allows generating synthetic future data)
+        future_limit = int(time.time() * 1000) + (365 * 24 * 3600 * 1000)
         df = flag_invalid(col("timestamp") > future_limit, "Future timestamp")
 
     # 6. Numeric ranges
