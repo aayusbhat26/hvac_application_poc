@@ -22,6 +22,8 @@ def get_spark_session(app_name):
             .config("spark.hadoop.fs.s3a.access.key", s3_access_key) \
             .config("spark.hadoop.fs.s3a.secret.key", s3_secret_key) \
             .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+            .config("spark.driver.extraJavaOptions", "-Dcom.amazonaws.services.s3.disablePutObjectMD5Validation=true -Dcom.amazonaws.services.s3.disableGetObjectMD5Validation=true") \
+            .config("spark.executor.extraJavaOptions", "-Dcom.amazonaws.services.s3.disablePutObjectMD5Validation=true -Dcom.amazonaws.services.s3.disableGetObjectMD5Validation=true") \
             .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
             .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
         
