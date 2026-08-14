@@ -13,7 +13,7 @@ def check_watermark(input_date_str, bucket_id, days):
         downloaded_path = hf_hub_download(
             repo_id=bucket_id, 
             filename="watermark.txt", 
-            repo_type="dataset",
+            repo_type="bucket",
             force_download=True 
         )
         with open(downloaded_path, "r") as f:
@@ -74,16 +74,27 @@ def update_watermark(end_date_str, start_date_str, days):
         f.write(f"Last workflow run generated {days} day(s) of data starting from {start_date_str}.\n")
     print(f"Locally updated data/watermark.txt to {end_date_str}.")
     
-    # Upload to HF directly
-    api = HfApi()
+    # Upload to HF Bucket using the hf CLI (buckets are NOT standard datasets)
+    import subprocess
     try:
-        api.upload_file(
-            path_or_fileobj="data/watermark.txt",
-            path_in_repo="watermark.txt",
-            repo_id="aayushbhat26/hvac_application_poc_bucket",
-            repo_type="dataset"
+        result = subprocess.run(
+            ["hf", "upload", "aayushbhat26/hvac_application_poc_bucket", 
+             "data/watermark.txt", "watermark.txt", "--repo-type", "bucket"],
+            capture_output=True, text=True, timeout=60
         )
-        print("Successfully uploaded watermark.txt to Hugging Face.")
+        if result.returncode == 0:
+            print("Successfully uploaded watermark.txt to Hugging Face Bucket.")
+        else:
+            print(f"hf CLI upload failed: {result.stderr}")
+            # Fallback: try HfApi with repo_type=None for buckets
+            api = HfApi()
+            api.upload_file(
+                path_or_fileobj="data/watermark.txt",
+                path_in_repo="watermark.txt",
+                repo_id="aayushbhat26/hvac_application_poc_bucket",
+                repo_type="bucket"
+            )
+            print("Successfully uploaded watermark.txt via HfApi fallback.")
     except Exception as e:
         print(f"Error uploading watermark to Hugging Face: {e}")
         sys.exit(1)
