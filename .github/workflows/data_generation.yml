@@ -43,7 +43,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          hf sync hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch ./data/batch || true
+          hf sync hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch ./data/batch --exclude "raw/*" || true
 
       - name: Check Watermark
         env:
