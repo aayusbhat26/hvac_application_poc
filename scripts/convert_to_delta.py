@@ -20,11 +20,13 @@ def process_files(input_dir, output_dir):
         # Read JSON files natively with Spark
         # We read all json files in the input_dir recursively
         print(f"Reading raw JSON files from {input_dir}")
-        # Note: We filter out metadata folders using a path filter after reading if needed, 
-        # or we can rely on the fact that metadata files don't have a 'records' array (it will become null when we explode).
-        # To be safe, we can filter using input_file_name() but usually the schema mismatch handles it, or we can just read the location folders.
-        # Let's read all JSONs from location directories, excluding metadata
-        df_raw = spark.read.json(f"{input_dir}/location_*/**/*.json", multiLine=True)
+        # Find all location_* directories and pass them to Spark
+        location_dirs = glob.glob(os.path.join(input_dir, "location_*"))
+        if not location_dirs:
+            print(f"No location directories found in {input_dir}")
+            return
+            
+        df_raw = spark.read.json(location_dirs, multiLine=True)
         
         # Explode the records array
         df_exploded = df_raw.select(
