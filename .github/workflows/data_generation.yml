@@ -66,7 +66,7 @@ jobs:
         run: |
           python scripts/convert_to_delta.py \
             --input-dir data/batch/raw \
-            --output-dir s3a://aayushbhat26/hvac_application_poc_bucket/batch/bronze
+            --output-dir s3a://hvac-application-poc-bucket/batch/bronze
 
       - name: Process Bronze to Staging
         if: success()
@@ -75,8 +75,8 @@ jobs:
           HF_S3_SECRET_KEY: ${{ secrets.HF_S3_SECRET_KEY }}
         run: |
           python scripts/bronze_to_staging.py \
-            --input-dir s3a://aayushbhat26/hvac_application_poc_bucket/batch/bronze \
-            --output-dir s3a://aayushbhat26/hvac_application_poc_bucket/batch/staging \
+            --input-dir s3a://hvac-application-poc-bucket/batch/bronze \
+            --output-dir s3a://hvac-application-poc-bucket/batch/staging \
             --start-date $TARGET_DATE \
             --end-date $END_DATE
 
@@ -87,8 +87,8 @@ jobs:
           HF_S3_SECRET_KEY: ${{ secrets.HF_S3_SECRET_KEY }}
         run: |
           python scripts/staging_to_silver.py \
-            --input-dir s3a://aayushbhat26/hvac_application_poc_bucket/batch/staging \
-            --output-dir s3a://aayushbhat26/hvac_application_poc_bucket/batch/silver \
+            --input-dir s3a://hvac-application-poc-bucket/batch/staging \
+            --output-dir s3a://hvac-application-poc-bucket/batch/silver \
             --start-date $TARGET_DATE \
             --end-date $END_DATE
 
@@ -99,8 +99,8 @@ jobs:
           HF_S3_SECRET_KEY: ${{ secrets.HF_S3_SECRET_KEY }}
         run: |
           python scripts/silver_to_gold.py \
-            --input-dir s3a://aayushbhat26/hvac_application_poc_bucket/batch/silver \
-            --output-dir s3a://aayushbhat26/hvac_application_poc_bucket/batch/gold \
+            --input-dir s3a://hvac-application-poc-bucket/batch/silver \
+            --output-dir s3a://hvac-application-poc-bucket/batch/gold \
             --start-date $TARGET_DATE \
             --end-date $END_DATE
 
@@ -109,8 +109,8 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          hf sync ./data/batch/raw hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch/raw
-          hf sync ./data/real_time hf://buckets/aayushbhat26/hvac_application_poc_bucket/real_time
+          hf sync ./data/batch/raw hf://buckets/aayushbhat26/hvac-application-poc-bucket/batch/raw
+          hf sync ./data/real_time hf://buckets/aayushbhat26/hvac-application-poc-bucket/real_time
 
       - name: Update Watermark on Hugging Face
         if: success()

@@ -277,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument("--date", help="Date to update watermark to (YYYY-MM-DD)", default=None)
     parser.add_argument("--start-date", help="The initial target date", default=None)
     parser.add_argument("--days", help="Number of days generated", default="1")
-    parser.add_argument("--bucket", default="aayushbhat26/hvac_application_poc_bucket")
+    parser.add_argument("--bucket", default="aayushbhat26/hvac-application-poc-bucket")
 
     args = parser.parse_args()
 
