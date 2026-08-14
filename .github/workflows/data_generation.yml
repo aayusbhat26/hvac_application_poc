@@ -27,7 +27,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas deltalake pyarrow huggingface_hub
+          pip install pyspark==3.5.1 delta-spark==3.1.0 pandas huggingface_hub
 
       - name: Install Hugging Face CLI (hf)
         run: |
@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p data/batch/raw
           mkdir -p data/batch/bronze
-          mkdir -p data/real\ time
+          mkdir -p data/real_time
 
       - name: Check Watermark
         env:
@@ -54,40 +54,54 @@ jobs:
           python scripts/generate_batch_data.py \
             --output-dir data/batch/raw \
             --start-date $TARGET_DATE \
-            --days ${{ github.event.inputs.days_to_generate || '1' }}
+            --days ${{ github.event.inputs.days_to_generate || '1' }} \
+            --seed $(date -d $TARGET_DATE +%s)
 
       - name: Convert Raw JSON to Delta Format (Bronze)
+        if: success()
         run: |
           python scripts/convert_to_delta.py \
             --input-dir data/batch/raw \
             --output-dir data/batch/bronze
 
       - name: Process Bronze to Staging
+        if: success()
         run: |
           python scripts/bronze_to_staging.py \
             --input-dir data/batch/bronze \
-            --output-dir data/batch/staging
+            --output-dir data/batch/staging \
+            --start-date $TARGET_DATE \
+            --end-date $END_DATE
 
       - name: Process Staging to Silver
+        if: success()
         run: |
           python scripts/staging_to_silver.py \
             --input-dir data/batch/staging \
-            --output-dir data/batch/silver
+            --output-dir data/batch/silver \
+            --start-date $TARGET_DATE \
+            --end-date $END_DATE
 
       - name: Process Silver to Gold (Dimensions & Facts)
+        if: success()
         run: |
           python scripts/silver_to_gold.py \
             --input-dir data/batch/silver \
-            --output-dir data/batch/gold
+            --output-dir data/batch/gold \
+            --start-date $TARGET_DATE \
+            --end-date $END_DATE
 
-      - name: Update Watermark Locally
-        run: |
-          python scripts/manage_watermark.py --action update --date $END_DATE --start-date $TARGET_DATE --days $GENERATED_DAYS
-
-      - name: Upload to Hugging Face Bucket
+      - name: Upload Data to Hugging Face Bucket
+        if: success()
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Sync the data folder to the specified HF Bucket
-          # Make sure HF_TOKEN is set as a repository secret in GitHub
-          hf sync ./data hf://buckets/aayushbhat26/hvac_application_poc_bucket
+          hf sync ./data/batch hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch
+          hf sync ./data/real_time hf://buckets/aayushbhat26/hvac_application_poc_bucket/real_time
+
+      - name: Update Watermark on Hugging Face
+        if: success()
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/manage_watermark.py --action update --date $END_DATE --start-date $TARGET_DATE --days $GENERATED_DAYS

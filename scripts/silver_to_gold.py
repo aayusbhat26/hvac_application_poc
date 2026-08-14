@@ -1,54 +1,76 @@
 import os
 import argparse
 import json
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from deltalake.writer import write_deltalake
-from deltalake import DeltaTable
+from pyspark.sql import SparkSession, Window
+from pyspark.sql.functions import (
+    col, lit, year, quarter, month, dayofmonth, dayofweek, hour, 
+    sum as _sum, count, max as _max, min as _min, mean as _mean,
+    when, countDistinct, from_unixtime, to_date, lag, collect_list,
+    struct
+)
+from delta.tables import DeltaTable
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+def cfg_path(*parts):
+    return os.path.join(BASE_DIR, '..', *parts)
 
-# Load critical reading codes mapping
-CRITICAL_CODES_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config', 'critical_reading_codes.json')
-with open(CRITICAL_CODES_PATH, 'r') as f:
-    CRITICAL_CODES_MAP = json.load(f)
-
-
-def safe_write(path, df, mode="overwrite", partition_by=None):
-    if mode == "append":
-        write_deltalake(path, df, mode=mode, partition_by=partition_by)
+CRITICAL_CODES_PATH = cfg_path('config', 'critical_reading_codes.json')
+def safe_merge(spark, target_path, df, merge_condition, partition_by=None):
+    if DeltaTable.isDeltaTable(spark, target_path):
+        target_table = DeltaTable.forPath(spark, target_path)
+        target_table.alias("t").merge(
+            df.alias("s"),
+            merge_condition
+        ).whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()
     else:
-        write_deltalake(path, df, mode=mode, partition_by=partition_by, schema_mode="overwrite")
+        writer = df.write.format("delta").mode("append")
+        if partition_by:
+            writer = writer.partitionBy(*partition_by)
+        writer.save(target_path)
 
-
-def process_silver_to_gold(input_dir, output_dir):
+def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None):
     os.makedirs(output_dir, exist_ok=True)
-    
-    # ---------------------------------------------------------
-    # 1. GENERATE STATIC DIMENSION TABLES (overwrite is fine — these are reference data)
-    # ---------------------------------------------------------
-    print("Generating Gold Dimension Tables...")
-    try:
-        with open('config/topology/customers.json', 'r') as f:
-            customers = json.load(f)
-        df_company = pd.DataFrame(customers)
-        df_company = df_company.rename(columns={'companyId': 'company_id', 'companyName': 'company_name', 'accountType': 'account_type'})
-        safe_write(os.path.join(output_dir, "dim_company"), df_company)
-
-        with open('config/topology/locations.json', 'r') as f:
-            locations = json.load(f)
-        df_location = pd.DataFrame(locations)
-        df_location = df_location.rename(columns={'locationId': 'location_id', 'companyId': 'company_id', 'locationName': 'location_name'})
-        safe_write(os.path.join(output_dir, "dim_location"), df_location)
-
-        with open('config/topology/hvac_machines.json', 'r') as f:
-            machines = json.load(f)
-        df_machine = pd.DataFrame(machines)
-        df_machine = df_machine.rename(columns={'hvacMachineId': 'hvac_machine_id', 'locationId': 'location_id'})
-        safe_write(os.path.join(output_dir, "dim_hvac_machine"), df_machine)
+    spark = SparkSession.builder \
+        .appName("HVAC_Silver_to_Gold") \
+        .config("spark.driver.memory", "2g") \
+        .config("spark.executor.memory", "2g") \
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+        .config("spark.databricks.delta.schema.autoMerge.enabled", "true") \
+        .getOrCreate()
         
-        # Generate dim_fault_code
+    try:
+        # 1. GENERATE STATIC DIMENSION TABLES
+        print("Generating Gold Dimension Tables...")
+        
+        with open(cfg_path('config', 'topology', 'customers.json'), 'r') as f:
+            df_company = spark.createDataFrame(json.load(f))
+            df_company = df_company.withColumnRenamed("companyId", "company_id") \
+                                   .withColumnRenamed("companyName", "company_name") \
+                                   .withColumnRenamed("accountType", "account_type")
+            safe_merge(spark, os.path.join(output_dir, "dim_company"), df_company, "t.company_id = s.company_id")
+
+        with open(cfg_path('config', 'topology', 'locations.json'), 'r') as f:
+            df_location = spark.createDataFrame(json.load(f))
+            df_location = df_location.withColumnRenamed("locationId", "location_id") \
+                                     .withColumnRenamed("companyId", "company_id") \
+                                     .withColumnRenamed("locationName", "location_name")
+            safe_merge(spark, os.path.join(output_dir, "dim_location"), df_location, "t.location_id = s.location_id")
+
+        with open(cfg_path('config', 'topology', 'hvac_machines.json'), 'r') as f:
+            df_machine = spark.createDataFrame(json.load(f))
+            df_machine = df_machine.withColumnRenamed("hvacMachineId", "hvac_machine_id") \
+                                   .withColumnRenamed("locationId", "location_id")
+            safe_merge(spark, os.path.join(output_dir, "dim_hvac_machine"), df_machine, "t.hvac_machine_id = s.hvac_machine_id")
+
+        try:
+            with open(CRITICAL_CODES_PATH, 'r') as f:
+                critical_map = json.load(f)
+        except Exception as e:
+            print(f"Failed to load critical reading codes: {e}")
+            return
+            
         fault_rows = []
-        for code, info in CRITICAL_CODES_MAP["codes"].items():
+        for code, info in critical_map["codes"].items():
             fault_rows.append({
                 'fault_code_key': int(code),
                 'fault_code': str(code),
@@ -59,407 +81,259 @@ def process_silver_to_gold(input_dir, output_dir):
                 'recommended_action': info.get('recommended_action', ''),
                 'is_active': True
             })
-        df_fault_code = pd.DataFrame(fault_rows)
-        safe_write(os.path.join(output_dir, "dim_fault_code"), df_fault_code)
+        if fault_rows:
+            df_fault = spark.createDataFrame(fault_rows)
+            safe_merge(spark, os.path.join(output_dir, "dim_fault_code"), df_fault, "t.fault_code_key = s.fault_code_key")
+
+        # 2. READ SILVER TELEMETRY DATA
+        components = ["compressor", "condenser", "evaporator", "expansion_valve"]
+        silver_dfs = {}
+        for comp in components:
+            silver_path = os.path.join(input_dir, comp)
+            if os.path.exists(silver_path) and DeltaTable.isDeltaTable(spark, silver_path):
+                df = spark.read.format("delta").load(silver_path)
+                if start_date:
+                    df = df.filter(to_date(col("date")) >= to_date(lit(start_date)))
+                if end_date:
+                    df = df.filter(to_date(col("date")) <= to_date(lit(end_date)))
+                if not df.rdd.isEmpty():
+                    df = df.withColumn("component_type", lit(comp))
+                    df = df.withColumn("hour", hour(from_unixtime(col("timestamp") / 1000)))
+                    silver_dfs[comp] = df
+
+        if not silver_dfs:
+            print("No silver telemetry data found in specified date range.")
+            return
+
+        # Create combined DataFrame using common columns
+        # To concatenate in PySpark safely, we align columns
+        from functools import reduce
         
-        print("Successfully generated dim_company, dim_location, dim_hvac_machine, dim_fault_code")
-    except Exception as e:
-        print(f"Error generating topology dimensions: {e}")
+        # Get all unique columns
+        all_cols = set()
+        for df in silver_dfs.values():
+            all_cols.update(df.columns)
+            
+        aligned_dfs = []
+        for df in silver_dfs.values():
+            for c in all_cols:
+                if c not in df.columns:
+                    df = df.withColumn(c, lit(None))
+            # Sort columns so unionByName works cleanly or just use unionByName(allowMissingColumns=True) in newer spark
+            aligned_dfs.append(df)
+            
+        combined_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), aligned_dfs)
+        combined_df.cache()
 
-    # ---------------------------------------------------------
-    # 2. READ SILVER TELEMETRY DATA
-    # ---------------------------------------------------------
-    components = ["compressor", "condenser", "evaporator", "expansion_valve"]
-    silver_data = {}
-    
-    for comp in components:
-        silver_path = os.path.join(input_dir, comp)
-        if os.path.exists(silver_path):
-            try:
-                dt = DeltaTable(silver_path)
-                df = dt.to_pandas()
-                df['component_type'] = comp
-                
-                # Cast all possible metric columns to numeric (float) to avoid aggregation TypeErrors
-                numeric_cols = [
-                    'power_consumption_kw', 'run_hours', 'start_stop_count', 'cop', 'eer',
-                    'vibration_mm_s', 'suction_temperature_c', 'discharge_temperature_c', 'suction_pressure_kpa', 'discharge_pressure_kpa',
-                    'water_inlet_temperature_c', 'water_outlet_temperature_c', 'fan_speed_rpm', 'heat_rejection_efficiency_pct', 'approach_temperature_c',
-                    'cooling_capacity_tr', 'entering_chilled_water_temperature_c', 'leaving_chilled_water_temperature_c', 'heat_transfer_efficiency_pct',
-                    'valve_opening_pct', 'superheat_c', 'subcooling_c', 'refrigerant_flow_rate_kg_min'
-                ]
-                for col in numeric_cols:
-                    if col in df.columns:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                        
-                silver_data[comp] = df
-            except Exception as e:
-                print(f"Error reading silver table {comp}: {e}")
-
-    if not silver_data:
-        print("No silver telemetry data found to build fact tables.")
-        return
-
-    # Create a unified DataFrame for cross-component facts
-    combined_df = pd.concat(silver_data.values(), ignore_index=True)
-    
-    # Extract hour from timestamp for hourly aggregations
-    combined_df['hour'] = pd.to_datetime(combined_df['timestamp'], unit='ms').dt.hour
-    for comp_name, comp_df in silver_data.items():
-        comp_df['hour'] = pd.to_datetime(comp_df['timestamp'], unit='ms').dt.hour
-
-    # ---------------------------------------------------------
-    # 3. GENERATE DYNAMIC DIMENSION TABLES
-    # ---------------------------------------------------------
-    if not combined_df.empty:
-        # dim_component (overwrite — master list)
+        # 3. DYNAMIC DIMENSIONS
+        
+        # dim_component
         comp_cols = ['component_id', 'hvac_machine_id', 'component_type', 'component_manufacturer', 'component_model', 'component_serial_number', 'component_installation_date']
         cols_present = [c for c in comp_cols if c in combined_df.columns]
-        dim_component = combined_df[cols_present].drop_duplicates(subset=['component_id'])
-        safe_write(os.path.join(output_dir, "dim_component"), dim_component)
-        print("Successfully wrote dim_component")
+        if cols_present:
+            dim_comp = combined_df.select(*cols_present).dropDuplicates(["component_id"])
+            # In a real SCD2 we would use a different merge condition, but for now we upsert
+            safe_merge(spark, os.path.join(output_dir, "dim_component"), dim_comp, "t.component_id = s.component_id")
+            
+        # dim_date
+        new_dates = combined_df.select("date").dropDuplicates()
+        dim_date = new_dates.withColumn("year", year(col("date"))) \
+                            .withColumn("quarter", quarter(col("date"))) \
+                            .withColumn("month", month(col("date"))) \
+                            .withColumn("day", dayofmonth(col("date"))) \
+                            .withColumn("day_of_week", dayofweek(col("date"))) \
+                            .withColumn("is_weekend", when(dayofweek(col("date")).isin([1, 7]), True).otherwise(False))
+        safe_merge(spark, os.path.join(output_dir, "dim_date"), dim_date, "t.date = s.date")
 
-        # dim_date — APPEND new dates, don't overwrite existing ones
-        new_dates = pd.to_datetime(combined_df['date'].unique())
-        new_dim_date = pd.DataFrame({
-            'date': new_dates.strftime('%Y-%m-%d'),
-            'year': new_dates.year,
-            'quarter': new_dates.quarter,
-            'month': new_dates.month,
-            'day': new_dates.day,
-            'day_of_week': new_dates.dayofweek,
-            'is_weekend': new_dates.dayofweek >= 5
-        })
+        # 4. CROSS-COMPONENT FACTS
         
-        dim_date_path = os.path.join(output_dir, "dim_date")
-        if os.path.exists(dim_date_path):
-            try:
-                existing_dt = DeltaTable(dim_date_path)
-                existing_df = existing_dt.to_pandas()
-                existing_dates = set(existing_df['date'].tolist())
-                # Only append dates that don't already exist
-                new_dim_date = new_dim_date[~new_dim_date['date'].isin(existing_dates)]
-                if not new_dim_date.empty:
-                    safe_write(dim_date_path, new_dim_date, mode="append")
-                    print(f"Appended {len(new_dim_date)} new date(s) to dim_date")
-                else:
-                    print("dim_date — no new dates to append (already exist)")
-            except Exception as e:
-                print(f"Error reading existing dim_date, creating fresh: {e}")
-                safe_write(dim_date_path, new_dim_date)
-                print(f"Created dim_date with {len(new_dim_date)} date(s)")
+        # State transitions for event counts
+        windowSpec = Window.partitionBy("component_id").orderBy("timestamp")
+        combined_df = combined_df.withColumn("is_faulty", col("health_status").isin("Critical", "Warning"))
+        combined_df = combined_df.withColumn("prev_faulty", lag("is_faulty").over(windowSpec))
+        combined_df = combined_df.withColumn(
+            "is_new_event", 
+            when(
+                (col("is_faulty")) & 
+                (col("prev_faulty").isNull() | (col("prev_faulty") == False)), 
+                1
+            ).otherwise(0)
+        )
+        
+        # health_daily
+        health_daily = combined_df.groupBy("date", "location_id", "hvac_machine_id", "component_id", "component_type").agg(
+            count("timestamp").alias("total_readings"),
+            _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("critical_readings"),
+            _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("warning_readings"),
+            _sum("is_new_event").alias("critical_event_count")
+        )
+        health_daily = health_daily.withColumn("health_score_pct", 
+            when(col("total_readings") > 0, 100.0 - (col("critical_readings") / col("total_readings") * 100.0) - (col("warning_readings") / col("total_readings") * 50.0)).otherwise(100.0)
+        )
+        health_daily = health_daily.withColumn("health_score_pct", when(col("health_score_pct") < 0, 0.0).otherwise(col("health_score_pct")))
+        safe_merge(spark, os.path.join(output_dir, "fact_component_health_daily"), health_daily, 
+            "t.date = s.date AND t.component_id = s.component_id", partition_by=["date"])
+
+        # health_hourly
+        health_hourly = combined_df.groupBy("date", "hour", "location_id", "hvac_machine_id", "component_id", "component_type").agg(
+            count("timestamp").alias("total_readings"),
+            _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("critical_readings"),
+            _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("warning_readings")
+        )
+        health_hourly = health_hourly.withColumn("health_score_pct", 
+            when(col("total_readings") > 0, 100.0 - (col("critical_readings") / col("total_readings") * 100.0) - (col("warning_readings") / col("total_readings") * 50.0)).otherwise(100.0)
+        )
+        health_hourly = health_hourly.withColumn("health_score_pct", when(col("health_score_pct") < 0, 0.0).otherwise(col("health_score_pct")))
+        safe_merge(spark, os.path.join(output_dir, "fact_component_health_hourly"), health_hourly, 
+            "t.date = s.date AND t.hour = s.hour AND t.component_id = s.component_id", partition_by=["date"])
+
+        # Deriving Interval Dynamically (Bug C1)
+        # We calculate the interval in hours by dividing duration by number of records
+        energy_df = combined_df.filter(col("power_consumption_kw").isNotNull())
+        energy_daily = energy_df.groupBy("date", "location_id", "hvac_machine_id", "component_id", "component_type").agg(
+            _mean("power_consumption_kw").alias("avg_power_kw"),
+            _max("power_consumption_kw").alias("max_power_kw"),
+            _min("power_consumption_kw").alias("min_power_kw"),
+            count("power_consumption_kw").alias("total_readings"),
+            ((_max("timestamp") - _min("timestamp")) / 1000 / 3600).alias("duration_hours")
+        )
+        # Handle single record edge case / missing duration
+        energy_daily = energy_daily.withColumn("duration_hours", 
+            when((col("duration_hours").isNotNull()) & (col("duration_hours") > 0), col("duration_hours")).otherwise(lit(5.0/60.0))
+        )
+        energy_daily = energy_daily.withColumn("daily_energy_kwh", col("avg_power_kw") * col("duration_hours"))
+        safe_merge(spark, os.path.join(output_dir, "fact_energy_consumption_daily"), energy_daily, 
+            "t.date = s.date AND t.component_id = s.component_id", partition_by=["date"])
+
+        energy_hourly = energy_df.groupBy("date", "hour", "location_id", "hvac_machine_id", "component_id", "component_type").agg(
+            _mean("power_consumption_kw").alias("avg_power_kw"),
+            _max("power_consumption_kw").alias("max_power_kw"),
+            _min("power_consumption_kw").alias("min_power_kw"),
+            count("power_consumption_kw").alias("total_readings"),
+            ((_max("timestamp") - _min("timestamp")) / 1000 / 3600).alias("duration_hours")
+        )
+        energy_hourly = energy_hourly.withColumn("duration_hours", 
+            when((col("duration_hours").isNotNull()) & (col("duration_hours") > 0), col("duration_hours")).otherwise(lit(5.0/60.0))
+        )
+        energy_hourly = energy_hourly.withColumn("hourly_energy_kwh", col("avg_power_kw") * col("duration_hours"))
+        safe_merge(spark, os.path.join(output_dir, "fact_energy_consumption_hourly"), energy_hourly, 
+            "t.date = s.date AND t.hour = s.hour AND t.component_id = s.component_id", partition_by=["date"])
+
+        alerts_daily = combined_df.groupBy("date", "location_id", "hvac_machine_id").agg(
+            _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("total_critical_alerts"),
+            _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("total_warning_alerts"),
+            countDistinct("health_active_fault_code").alias("unique_fault_codes")
+        )
+        safe_merge(spark, os.path.join(output_dir, "fact_machine_alerts_daily"), alerts_daily, 
+            "t.date = s.date AND t.hvac_machine_id = s.hvac_machine_id", partition_by=["date"])
+
+        alerts_hourly = combined_df.groupBy("date", "hour", "location_id", "hvac_machine_id").agg(
+            _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("total_critical_alerts"),
+            _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("total_warning_alerts"),
+            countDistinct("health_active_fault_code").alias("unique_fault_codes")
+        )
+        safe_merge(spark, os.path.join(output_dir, "fact_machine_alerts_hourly"), alerts_hourly, 
+            "t.date = s.date AND t.hour = s.hour AND t.hvac_machine_id = s.hvac_machine_id", partition_by=["date"])
+
+        # Performance metrics
+        if "compressor" in silver_dfs:
+            comp_df = silver_dfs["compressor"]
+            perf_daily = comp_df.groupBy("date", "location_id", "hvac_machine_id").agg(
+                _max("run_hours").alias("max_run_hours"),
+                _max("start_stop_count").alias("max_start_stops"),
+                _mean("cop").alias("avg_cop"),
+                _mean("eer").alias("avg_eer")
+            )
+            safe_merge(spark, os.path.join(output_dir, "fact_machine_performance_daily"), perf_daily, 
+                "t.date = s.date AND t.hvac_machine_id = s.hvac_machine_id", partition_by=["date"])
+
+        # 5. COMPONENT SPECIFIC
+        def gen_metrics(df, comp_type, metrics):
+            valid_metrics = [m for m in metrics if m in df.columns]
+            if not valid_metrics: return
+            
+            aggs = []
+            for m in valid_metrics:
+                aggs.append(_mean(m).alias(f"avg_{m}"))
+                aggs.append(_max(m).alias(f"max_{m}"))
+            
+            c_daily = df.groupBy("date", "location_id", "hvac_machine_id", "component_id").agg(*aggs)
+            safe_merge(spark, os.path.join(output_dir, f"fact_{comp_type}_metrics_daily"), c_daily, 
+                "t.date = s.date AND t.component_id = s.component_id", partition_by=["date"])
+                
+            c_hourly = df.groupBy("date", "hour", "location_id", "hvac_machine_id", "component_id").agg(*aggs)
+            safe_merge(spark, os.path.join(output_dir, f"fact_{comp_type}_metrics_hourly"), c_hourly, 
+                "t.date = s.date AND t.hour = s.hour AND t.component_id = s.component_id", partition_by=["date"])
+
+        if "compressor" in silver_dfs:
+            gen_metrics(silver_dfs["compressor"], "compressor", ['vibration_mm_s', 'suction_temperature_c', 'discharge_temperature_c', 'suction_pressure_kpa', 'discharge_pressure_kpa'])
+        if "condenser" in silver_dfs:
+            gen_metrics(silver_dfs["condenser"], "condenser", ['water_inlet_temperature_c', 'water_outlet_temperature_c', 'fan_speed_rpm', 'heat_rejection_efficiency_pct', 'approach_temperature_c'])
+        if "evaporator" in silver_dfs:
+            gen_metrics(silver_dfs["evaporator"], "evaporator", ['cooling_capacity_tr', 'entering_chilled_water_temperature_c', 'leaving_chilled_water_temperature_c', 'heat_transfer_efficiency_pct'])
+        if "expansion_valve" in silver_dfs:
+            gen_metrics(silver_dfs["expansion_valve"], "expansion_valve", ['valve_opening_pct', 'superheat_c', 'subcooling_c', 'refrigerant_flow_rate_kg_min'])
+
+        # 6. KPI ROLLUPS
+        
+        # Bug C3: machines_online based on run_status > 0
+        if "compressor" in silver_dfs:
+            online_df = silver_dfs["compressor"].groupBy("date", "hvac_machine_id").agg(_max("run_status").alias("is_online"))
+            machines_online = online_df.filter(col("is_online") > 0).groupBy("date").agg(count("hvac_machine_id").alias("machines_online"))
         else:
-            safe_write(dim_date_path, new_dim_date)
-            print(f"Created dim_date with {len(new_dim_date)} date(s)")
-
-    # ---------------------------------------------------------
-    # 4. CROSS-COMPONENT FACT TABLES — DAILY
-    # ---------------------------------------------------------
-    
-    # Build a lookup of component_type -> list of critical reading codes
-    component_code_map = {}
-    for code, info in CRITICAL_CODES_MAP["codes"].items():
-        ct = info["component_type"]
-        component_code_map.setdefault(ct, []).append(int(code))
-    
-    # ---- fact_component_health_daily ----
-    print("Generating fact_component_health_daily...")
-    health_daily = combined_df.groupby(['date', 'location_id', 'hvac_machine_id', 'component_id', 'component_type']).agg(
-        total_readings=('timestamp', 'count'),
-        critical_readings=('health_status', lambda x: (x == 'Critical').sum()),
-        warning_readings=('health_status', lambda x: (x == 'Warning').sum()),
-        active_fault_code=('health_active_fault_code', lambda x: x.dropna().mode().iloc[0] if not x.dropna().empty else None)
-    ).reset_index()
-    
-    health_daily['critical_reading_code'] = health_daily['active_fault_code'].apply(
-        lambda x: int(x) if pd.notna(x) else 0
-    )
-    rng = np.random.default_rng(42)
-    health_daily['critical_event_count'] = health_daily.apply(
-        lambda row: int(rng.integers(1, 12)) if row['critical_readings'] > 0 
-                     else (int(rng.integers(1, 4)) if row['warning_readings'] > 0 else 0),
-        axis=1
-    )
-    health_daily = health_daily.drop(columns=['active_fault_code'])
-    health_daily['health_score_pct'] = (
-        100.0 - 
-        (health_daily['critical_readings'] / health_daily['total_readings'] * 100.0) -
-        (health_daily['warning_readings'] / health_daily['total_readings'] * 50.0)
-    ).clip(lower=0.0)
-    safe_write(os.path.join(output_dir, "fact_component_health_daily"), health_daily, partition_by=["date"])
-
-    # ---- fact_component_health_hourly ----
-    print("Generating fact_component_health_hourly...")
-    health_hourly = combined_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id', 'component_id', 'component_type']).agg(
-        total_readings=('timestamp', 'count'),
-        critical_readings=('health_status', lambda x: (x == 'Critical').sum()),
-        warning_readings=('health_status', lambda x: (x == 'Warning').sum()),
-        active_fault_code=('health_active_fault_code', lambda x: x.dropna().mode().iloc[0] if not x.dropna().empty else None)
-    ).reset_index()
-    health_hourly['critical_reading_code'] = health_hourly['active_fault_code'].apply(
-        lambda x: int(x) if pd.notna(x) else 0
-    )
-    health_hourly = health_hourly.drop(columns=['active_fault_code'])
-    health_hourly['health_score_pct'] = (
-        100.0 - 
-        (health_hourly['critical_readings'] / health_hourly['total_readings'] * 100.0) -
-        (health_hourly['warning_readings'] / health_hourly['total_readings'] * 50.0)
-    ).clip(lower=0.0)
-    safe_write(os.path.join(output_dir, "fact_component_health_hourly"), health_hourly, partition_by=["date"])
-
-    # ---- fact_energy_consumption_daily ----
-    print("Generating fact_energy_consumption_daily...")
-    if 'power_consumption_kw' in combined_df.columns:
-        energy_df = combined_df.dropna(subset=['power_consumption_kw'])
-        interval_hours = 5 / 60  # 5-minute intervals = 0.0833 hours
-        energy_daily = energy_df.groupby(['date', 'location_id', 'hvac_machine_id', 'component_id', 'component_type']).agg(
-            avg_power_kw=('power_consumption_kw', 'mean'),
-            max_power_kw=('power_consumption_kw', 'max'),
-            min_power_kw=('power_consumption_kw', 'min'),
-            total_readings=('power_consumption_kw', 'count')
-        ).reset_index()
-        energy_daily['daily_energy_kwh'] = energy_daily['avg_power_kw'] * (energy_daily['total_readings'] * interval_hours)
-        safe_write(os.path.join(output_dir, "fact_energy_consumption_daily"), energy_daily, partition_by=["date"])
-
-    # ---- fact_energy_consumption_hourly ----
-    print("Generating fact_energy_consumption_hourly...")
-    if 'power_consumption_kw' in combined_df.columns:
-        energy_df = combined_df.dropna(subset=['power_consumption_kw'])
-        energy_hourly = energy_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id', 'component_id', 'component_type']).agg(
-            avg_power_kw=('power_consumption_kw', 'mean'),
-            max_power_kw=('power_consumption_kw', 'max'),
-            min_power_kw=('power_consumption_kw', 'min'),
-            total_readings=('power_consumption_kw', 'count')
-        ).reset_index()
-        energy_hourly['hourly_energy_kwh'] = energy_hourly['avg_power_kw'] * (energy_hourly['total_readings'] * interval_hours)
-        safe_write(os.path.join(output_dir, "fact_energy_consumption_hourly"), energy_hourly, partition_by=["date"])
-
-    # ---- fact_machine_alerts_daily ----
-    print("Generating fact_machine_alerts_daily...")
-    alerts_daily = combined_df.groupby(['date', 'location_id', 'hvac_machine_id']).agg(
-        total_critical_alerts=('health_status', lambda x: (x == 'Critical').sum()),
-        total_warning_alerts=('health_status', lambda x: (x == 'Warning').sum()),
-        unique_fault_codes=('health_active_fault_code', lambda x: x.dropna().nunique())
-    ).reset_index()
-    safe_write(os.path.join(output_dir, "fact_machine_alerts_daily"), alerts_daily, partition_by=["date"])
-
-    # ---- fact_machine_alerts_hourly ----
-    print("Generating fact_machine_alerts_hourly...")
-    alerts_hourly = combined_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id']).agg(
-        total_critical_alerts=('health_status', lambda x: (x == 'Critical').sum()),
-        total_warning_alerts=('health_status', lambda x: (x == 'Warning').sum()),
-        unique_fault_codes=('health_active_fault_code', lambda x: x.dropna().nunique())
-    ).reset_index()
-    safe_write(os.path.join(output_dir, "fact_machine_alerts_hourly"), alerts_hourly, partition_by=["date"])
-
-    # ---- fact_machine_performance_daily ----
-    print("Generating fact_machine_performance_daily...")
-    perf_cols = ['run_hours', 'start_stop_count', 'cop', 'eer']
-    has_perf = any(c in combined_df.columns for c in perf_cols)
-    if has_perf:
-        agg_dict = {}
-        if 'run_hours' in combined_df.columns: agg_dict['max_run_hours'] = ('run_hours', 'max')
-        if 'start_stop_count' in combined_df.columns: agg_dict['max_start_stops'] = ('start_stop_count', 'max')
-        if 'cop' in combined_df.columns: agg_dict['avg_cop'] = ('cop', 'mean')
-        if 'eer' in combined_df.columns: agg_dict['avg_eer'] = ('eer', 'mean')
-        
-        if agg_dict:
-            perf_daily = combined_df.groupby(['date', 'location_id', 'hvac_machine_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_machine_performance_daily"), perf_daily, partition_by=["date"])
-
-    # ---------------------------------------------------------
-    # 5. COMPONENT-SPECIFIC FACT TABLES — DAILY + HOURLY
-    # ---------------------------------------------------------
-    
-    # ---- COMPRESSOR ----
-    if "compressor" in silver_data:
-        comp_df = silver_data["compressor"]
-        metrics = ['vibration_mm_s', 'suction_temperature_c', 'discharge_temperature_c', 'suction_pressure_kpa', 'discharge_pressure_kpa']
-        agg_dict = {f"avg_{m}": (m, 'mean') for m in metrics if m in comp_df.columns}
-        agg_dict.update({f"max_{m}": (m, 'max') for m in metrics if m in comp_df.columns})
-        if agg_dict:
-            print("Generating fact_compressor_metrics_daily...")
-            comp_daily = comp_df.groupby(['date', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_compressor_metrics_daily"), comp_daily, partition_by=["date"])
-
-            print("Generating fact_compressor_metrics_hourly...")
-            comp_hourly = comp_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_compressor_metrics_hourly"), comp_hourly, partition_by=["date"])
-
-    # ---- CONDENSER ----
-    if "condenser" in silver_data:
-        cond_df = silver_data["condenser"]
-        metrics = ['water_inlet_temperature_c', 'water_outlet_temperature_c', 'fan_speed_rpm', 'heat_rejection_efficiency_pct', 'approach_temperature_c']
-        agg_dict = {f"avg_{m}": (m, 'mean') for m in metrics if m in cond_df.columns}
-        if agg_dict:
-            print("Generating fact_condenser_metrics_daily...")
-            cond_daily = cond_df.groupby(['date', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_condenser_metrics_daily"), cond_daily, partition_by=["date"])
-
-            print("Generating fact_condenser_metrics_hourly...")
-            cond_hourly = cond_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_condenser_metrics_hourly"), cond_hourly, partition_by=["date"])
-
-    # ---- EVAPORATOR ----
-    if "evaporator" in silver_data:
-        evap_df = silver_data["evaporator"]
-        metrics = ['cooling_capacity_tr', 'entering_chilled_water_temperature_c', 'leaving_chilled_water_temperature_c', 'heat_transfer_efficiency_pct']
-        agg_dict = {f"avg_{m}": (m, 'mean') for m in metrics if m in evap_df.columns}
-        if agg_dict:
-            print("Generating fact_evaporator_metrics_daily...")
-            evap_daily = evap_df.groupby(['date', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_evaporator_metrics_daily"), evap_daily, partition_by=["date"])
-
-            print("Generating fact_evaporator_metrics_hourly...")
-            evap_hourly = evap_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_evaporator_metrics_hourly"), evap_hourly, partition_by=["date"])
-
-    # ---- EXPANSION VALVE ----
-    if "expansion_valve" in silver_data:
-        valv_df = silver_data["expansion_valve"]
-        metrics = ['valve_opening_pct', 'superheat_c', 'subcooling_c', 'refrigerant_flow_rate_kg_min']
-        agg_dict = {f"avg_{m}": (m, 'mean') for m in metrics if m in valv_df.columns}
-        if agg_dict:
-            print("Generating fact_expansion_valve_metrics_daily...")
-            valv_daily = valv_df.groupby(['date', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_expansion_valve_metrics_daily"), valv_daily, partition_by=["date"])
-
-            print("Generating fact_expansion_valve_metrics_hourly...")
-            valv_hourly = valv_df.groupby(['date', 'hour', 'location_id', 'hvac_machine_id', 'component_id']).agg(**agg_dict).reset_index()
-            safe_write(os.path.join(output_dir, "fact_expansion_valve_metrics_hourly"), valv_hourly, partition_by=["date"])
-
-    # ---------------------------------------------------------
-    # 6. KPI ROLLUPS (Fleet and Location levels)
-    # ---------------------------------------------------------
-    print("Generating KPI Rollups...")
-    
-    # 6a. Roll up health to the machine level first
-    if 'health_daily' in locals() and not health_daily.empty:
-        machine_health = health_daily.groupby(['date', 'location_id', 'hvac_machine_id']).agg(
-            total_readings=('total_readings', 'sum'),
-            critical_readings=('critical_readings', 'sum'),
-            warning_readings=('warning_readings', 'sum')
-        ).reset_index()
-        machine_health['machine_health_score'] = (
-            100.0 - 
-            (machine_health['critical_readings'] / machine_health['total_readings'] * 100.0) -
-            (machine_health['warning_readings'] / machine_health['total_readings'] * 50.0)
-        ).clip(lower=0.0)
-    else:
-        machine_health = pd.DataFrame()
-
-    # 6b. Fleet Summary KPI
-    fleet_kpi_dfs = []
-    for d in combined_df['date'].unique():
-        d_df = combined_df[combined_df['date'] == d]
-        total_locations = d_df['location_id'].nunique()
-        total_machines = d_df['hvac_machine_id'].nunique()
-        machines_online = total_machines # assuming all reporting are online
-        
-        healthy_count = warning_count = critical_count = 0
-        avg_health = 0.0
-        if not machine_health.empty:
-            mh_d = machine_health[machine_health['date'] == d]
-            if not mh_d.empty:
-                healthy_count = (mh_d['machine_health_score'] >= 90).sum()
-                warning_count = ((mh_d['machine_health_score'] >= 70) & (mh_d['machine_health_score'] < 90)).sum()
-                critical_count = (mh_d['machine_health_score'] < 70).sum()
-                avg_health = mh_d['machine_health_score'].mean()
-                
-        total_energy = 0.0
-        if 'energy_daily' in locals() and not energy_daily.empty:
-            ed_d = energy_daily[energy_daily['date'] == d]
-            if not ed_d.empty:
-                total_energy = ed_d['daily_energy_kwh'].sum()
-                
-        active_faults = 0
-        if 'alerts_daily' in locals() and not alerts_daily.empty:
-            ad_d = alerts_daily[alerts_daily['date'] == d]
-            if not ad_d.empty:
-                active_faults = ad_d['total_critical_alerts'].sum() + ad_d['total_warning_alerts'].sum()
-                
-        avg_cop = 0.0
-        if 'perf_daily' in locals() and not perf_daily.empty:
-            pd_d = perf_daily[perf_daily['date'] == d]
-            if not pd_d.empty and 'avg_cop' in pd_d.columns:
-                avg_cop = pd_d['avg_cop'].mean()
-                
-        fleet_kpi_dfs.append({
-            'date': d,
-            'total_locations': total_locations,
-            'total_machines': total_machines,
-            'machines_online': machines_online,
-            'healthy_count': healthy_count,
-            'warning_count': warning_count,
-            'critical_count': critical_count,
-            'avg_health_score': avg_health,
-            'total_energy_kwh': total_energy,
-            'avg_cop': avg_cop,
-            'active_fault_count': active_faults
-        })
-        
-    if fleet_kpi_dfs:
-        kpi_fleet_summary_daily = pd.DataFrame(fleet_kpi_dfs)
-        safe_write(os.path.join(output_dir, "KPI_Rollups/kpi_fleet_summary_daily"), kpi_fleet_summary_daily, partition_by=["date"])
-        
-    # 6c. Location Energy KPI
-    if 'energy_daily' in locals() and not energy_daily.empty:
-        # Pivot component_type to columns
-        loc_energy = energy_daily.groupby(['date', 'location_id', 'component_type'])['daily_energy_kwh'].sum().unstack(fill_value=0).reset_index()
-        
-        # Ensure columns exist even if some components are missing
-        for col in ['compressor', 'condenser', 'evaporator', 'expansion_valve']:
-            if col not in loc_energy.columns:
-                loc_energy[col] = 0.0
-                
-        # Calculate totals
-        loc_energy = loc_energy.rename(columns={
-            'compressor': 'compressor_power_kwh',
-            'condenser': 'condenser_fan_power_kwh',
-            'evaporator': 'pump_power_kwh',
-            'expansion_valve': 'valve_power_kwh'
-        })
-        loc_energy['total_power_consumption_kwh'] = loc_energy['compressor_power_kwh'] + loc_energy['condenser_fan_power_kwh'] + loc_energy['pump_power_kwh'] + loc_energy['valve_power_kwh']
-        safe_write(os.path.join(output_dir, "KPI_Rollups/kpi_location_energy_daily"), loc_energy, partition_by=["date"])
-
-    # 6d. Location Performance Summary KPI
-    if not machine_health.empty:
-        loc_health = machine_health.groupby(['date', 'location_id']).agg(
-            avg_health_score=('machine_health_score', 'mean'),
-            machines_count=('hvac_machine_id', 'nunique')
-        ).reset_index()
-        
-        loc_faults = pd.DataFrame(columns=['date', 'location_id', 'total_fault_events'])
-        if 'alerts_daily' in locals() and not alerts_daily.empty:
-            loc_faults = alerts_daily.groupby(['date', 'location_id']).agg(
-                total_fault_events=('unique_fault_codes', 'sum')
-            ).reset_index()
+            machines_online = combined_df.select("date", "hvac_machine_id").dropDuplicates().groupBy("date").agg(count("hvac_machine_id").alias("machines_online"))
             
-        loc_cop = pd.DataFrame(columns=['date', 'location_id', 'avg_location_cop'])
-        if 'perf_daily' in locals() and not perf_daily.empty and 'avg_cop' in perf_daily.columns:
-            loc_cop = perf_daily.groupby(['date', 'location_id']).agg(
-                avg_location_cop=('avg_cop', 'mean')
-            ).reset_index()
-            
-        # Merge them
-        kpi_loc_perf = loc_health
-        if not loc_faults.empty:
-            kpi_loc_perf = pd.merge(kpi_loc_perf, loc_faults, on=['date', 'location_id'], how='left').fillna(0)
-        else:
-            kpi_loc_perf['total_fault_events'] = 0
-            
-        if not loc_cop.empty:
-            kpi_loc_perf = pd.merge(kpi_loc_perf, loc_cop, on=['date', 'location_id'], how='left').fillna(0)
-        else:
-            kpi_loc_perf['avg_location_cop'] = 0.0
-            
-        safe_write(os.path.join(output_dir, "KPI_Rollups/kpi_location_performance_summary"), kpi_loc_perf, partition_by=["date"])
+        machine_health = health_daily.groupBy("date", "location_id", "hvac_machine_id").agg(
+            _sum("total_readings").alias("total_readings"),
+            _sum("critical_readings").alias("critical_readings"),
+            _sum("warning_readings").alias("warning_readings")
+        )
+        machine_health = machine_health.withColumn("machine_health_score", 
+            when(col("total_readings") > 0, 100.0 - (col("critical_readings") / col("total_readings") * 100.0) - (col("warning_readings") / col("total_readings") * 50.0)).otherwise(100.0)
+        )
+        machine_health = machine_health.withColumn("machine_health_score", when(col("machine_health_score") < 0, 0.0).otherwise(col("machine_health_score")))
 
-    print("\nAll Gold tables (including KPIs) generated successfully!")
+        fleet_summary = combined_df.groupBy("date").agg(
+            countDistinct("location_id").alias("total_locations"),
+            countDistinct("hvac_machine_id").alias("total_machines")
+        ).join(machines_online, on="date", how="left")
+        
+        fleet_health_agg = machine_health.groupBy("date").agg(
+            _sum(when(col("machine_health_score") >= 90, 1).otherwise(0)).alias("healthy_count"),
+            _sum(when((col("machine_health_score") >= 70) & (col("machine_health_score") < 90), 1).otherwise(0)).alias("warning_count"),
+            _sum(when(col("machine_health_score") < 70, 1).otherwise(0)).alias("critical_count"),
+            _mean("machine_health_score").alias("avg_health_score")
+        )
+        fleet_summary = fleet_summary.join(fleet_health_agg, on="date", how="left")
+        
+        fleet_energy_agg = energy_daily.groupBy("date").agg(_sum("daily_energy_kwh").alias("total_energy_kwh"))
+        fleet_summary = fleet_summary.join(fleet_energy_agg, on="date", how="left")
+        
+        if "compressor" in silver_dfs:
+            fleet_perf_agg = silver_dfs["compressor"].groupBy("date").agg(_mean("cop").alias("avg_cop"))
+            fleet_summary = fleet_summary.join(fleet_perf_agg, on="date", how="left")
+            
+        fleet_alerts_agg = alerts_daily.groupBy("date").agg((_sum("total_critical_alerts") + _sum("total_warning_alerts")).alias("active_fault_count"))
+        fleet_summary = fleet_summary.join(fleet_alerts_agg, on="date", how="left").fillna(0)
+        
+        safe_merge(spark, os.path.join(output_dir, "KPI_Rollups/kpi_fleet_summary_daily"), fleet_summary, "t.date = s.date", partition_by=["date"])
+
+        combined_df.unpersist()
+        print("Successfully generated all Gold tables.")
+
+    except Exception as e:
+        print(f"Error in Silver to Gold processing: {e}")
+        import traceback
+        traceback.print_exc()
+        raise e
+    finally:
+        spark.stop()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-dir", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--start-date", default=None)
+    parser.add_argument("--end-date", default=None)
     args = parser.parse_args()
-    process_silver_to_gold(args.input_dir, args.output_dir)
+    process_silver_to_gold(args.input_dir, args.output_dir, args.start_date, args.end_date)

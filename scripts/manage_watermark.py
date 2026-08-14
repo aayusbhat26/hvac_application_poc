@@ -1,8 +1,8 @@
 import os
 import sys
 import argparse
-from datetime import datetime, timedelta
-from huggingface_hub import hf_hub_download
+from datetime import datetime, timedelta, timezone
+from huggingface_hub import hf_hub_download, HfApi
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, HfHubHTTPError
 
 def check_watermark(input_date_str, bucket_id, days):
@@ -23,7 +23,7 @@ def check_watermark(input_date_str, bucket_id, days):
     except Exception as e:
         print(f"Warning: Unexpected error while fetching watermark: {e}")
 
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     if watermark_date_str:
         print(f"Current watermark found: {watermark_date_str}")
@@ -39,8 +39,8 @@ def check_watermark(input_date_str, bucket_id, days):
     if input_date_str:
         input_date = datetime.strptime(input_date_str, "%Y-%m-%d")
         if watermark_date and input_date <= watermark_date:
-            print(f"::error::Duplicate Generation Prevented. Requested start date {input_date_str} is <= watermark {watermark_date_str}.")
-            sys.exit(1)
+            print(f"::notice::Duplicate Generation Prevented. Requested start date {input_date_str} is <= watermark {watermark_date_str}.")
+            sys.exit(0)
         target_date_str = input_date_str
     else:
         if watermark_date:
@@ -72,7 +72,21 @@ def update_watermark(end_date_str, start_date_str, days):
         f.write(f"{end_date_str}\n")
         f.write(f"This dataset contains data up to {end_date_str}.\n")
         f.write(f"Last workflow run generated {days} day(s) of data starting from {start_date_str}.\n")
-    print(f"Locally updated data/watermark.txt to {end_date_str}. It will be uploaded during the sync step.")
+    print(f"Locally updated data/watermark.txt to {end_date_str}.")
+    
+    # Upload to HF directly
+    api = HfApi()
+    try:
+        api.upload_file(
+            path_or_fileobj="data/watermark.txt",
+            path_in_repo="watermark.txt",
+            repo_id="aayushbhat26/hvac_application_poc_bucket",
+            repo_type="dataset"
+        )
+        print("Successfully uploaded watermark.txt to Hugging Face.")
+    except Exception as e:
+        print(f"Error uploading watermark to Hugging Face: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Manage data generation watermark on Hugging Face.")

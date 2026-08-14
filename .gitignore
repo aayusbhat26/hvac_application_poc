@@ -1,4 +1,5 @@
 batch_output/
 venv/
 clear_hf_bucket.py  
- 
+data
+temp_raw

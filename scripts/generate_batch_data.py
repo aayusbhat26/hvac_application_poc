@@ -34,6 +34,17 @@ def machine_design_capacity_tr(hvac_machine_id):
     r = random.Random(_stable_seed("cap", hvac_machine_id))
     return r.choice([300, 350, 400, 450, 500, 550, 600])
 
+def generate_component_metadata(device_id, machine_manufacturer):
+    r = random.Random(_stable_seed("meta", device_id))
+    manufacturers = [machine_manufacturer, "Copeland", "Danfoss", "Bitzer", "Carrier"]
+    models = ["X-100", "Y-200", "Z-300", "PRO-Max", "Eco-Series"]
+    return {
+        "componentManufacturer": r.choice(manufacturers),
+        "componentModel": r.choice(models),
+        "componentSerialNumber": f"SN-{r.randint(100000, 999999)}",
+        "componentInstallationDate": (datetime(2020, 1, 1) + timedelta(days=r.randint(0, 1500))).strftime("%Y-%m-%d")
+    }
+
 # --------------------------------------------------------------------------
 # 1. TIME-VARIANT FLEET TOPOLOGY (Metadata & Asset Registry)
 # --------------------------------------------------------------------------
@@ -93,18 +104,18 @@ def build_fleet(target_date):
             "maxDesignCapacityTr": machine_design_capacity_tr(hvac_machine_id),
             "components": {
                 "compressor": [
-                    {"deviceId": comp_id_a, "circuitId": "A"},
-                    {"deviceId": comp_id_b, "circuitId": "B"},
+                    {"deviceId": comp_id_a, "circuitId": "A", **generate_component_metadata(comp_id_a, machine["manufacturer"])},
+                    {"deviceId": comp_id_b, "circuitId": "B", **generate_component_metadata(comp_id_b, machine["manufacturer"])},
                 ],
                 "condenser": [
-                    {"deviceId": cond_id, "circuitId": None},
+                    {"deviceId": cond_id, "circuitId": None, **generate_component_metadata(cond_id, machine["manufacturer"])},
                 ],
                 "evaporator": [
-                    {"deviceId": evap_id, "circuitId": None},
+                    {"deviceId": evap_id, "circuitId": None, **generate_component_metadata(evap_id, machine["manufacturer"])},
                 ],
                 "expansion_valve": [
-                    {"deviceId": exv_id_a, "circuitId": "A"},
-                    {"deviceId": exv_id_b, "circuitId": "B"},
+                    {"deviceId": exv_id_a, "circuitId": "A", **generate_component_metadata(exv_id_a, machine["manufacturer"])},
+                    {"deviceId": exv_id_b, "circuitId": "B", **generate_component_metadata(exv_id_b, machine["manufacturer"])},
                 ],
             },
         })
@@ -334,7 +345,7 @@ def status_fields(component_type, rng, fault_active):
         return {"valveStatus": "ACTIVE", "controlMode": "AUTO"}
     return {}
 
-def generate_reading(component_type, state, ts_ms, rng, dropout_probability, interval_minutes,
+def generate_reading(component_type, device_id, state, ts_ms, rng, dropout_probability, interval_minutes,
                       circuit_id=None):
     fields = FIELD_SETS[component_type]
     values = state["values"]
@@ -351,7 +362,7 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
         state["valve_step_position"] += rng.randint(-2, 2)
 
     reading = {
-        "eventId": str(uuid.uuid4()),
+        "eventId": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{device_id}_{ts_ms}")),
         "timestamp": str(ts_ms),
     }
 
@@ -399,9 +410,11 @@ def generate_reading(component_type, state, ts_ms, rng, dropout_probability, int
 # 5. BATCH FILE ASSEMBLY
 # --------------------------------------------------------------------------
 
-def generate_device_day_batch(component_type, device_id, machine,
+def generate_device_day_batch(component_type, device_info, machine,
                                day, state, rng, interval_minutes, dropout_probability,
-                               daily_fault_probability, circuit_id=None):
+                               daily_fault_probability):
+    device_id = device_info["deviceId"]
+    circuit_id = device_info["circuitId"]
     day_start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
     ticks = (24 * 60) // interval_minutes
 
@@ -411,7 +424,7 @@ def generate_device_day_batch(component_type, device_id, machine,
         ts = day_start + timedelta(minutes=i * interval_minutes)
         ts_ms = int(ts.timestamp() * 1000)
         records.append(
-            generate_reading(component_type, state, ts_ms, rng, dropout_probability,
+            generate_reading(component_type, device_id, state, ts_ms, rng, dropout_probability,
                               interval_minutes, circuit_id=circuit_id)
         )
         tick_fault(state)
@@ -442,6 +455,11 @@ def generate_device_day_batch(component_type, device_id, machine,
         "locationCity": machine["locationCity"],
         "locationState": machine["locationState"],
         "locationCountry": machine["locationCountry"],
+
+        "componentManufacturer": device_info.get("componentManufacturer"),
+        "componentModel": device_info.get("componentModel"),
+        "componentSerialNumber": device_info.get("componentSerialNumber"),
+        "componentInstallationDate": device_info.get("componentInstallationDate"),
 
         "batchStartTime": str(int(day_start.timestamp() * 1000)),
         "batchEndTime": str(int((day_start + timedelta(days=1)).timestamp() * 1000)),
@@ -496,9 +514,9 @@ def run(output_dir, start_date, num_days, interval_minutes, dropout_probability,
 
                     state = device_states[device_id]
                     batch, upload_ts_ms = generate_device_day_batch(
-                        component_type, device_id, machine,
+                        component_type, device_info, machine,
                         day, state, rng, interval_minutes, dropout_probability,
-                        daily_fault_probability, circuit_id=circuit_id,
+                        daily_fault_probability,
                     )
 
                     circuit_suffix = f"_{circuit_id}" if circuit_id else ""
