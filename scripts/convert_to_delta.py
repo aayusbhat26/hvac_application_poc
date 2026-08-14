@@ -36,9 +36,15 @@ def process_files(input_dir, output_dir):
             explode("records").alias("record")
         ).drop("records")
         
-        # Select base metadata + nested record fields dynamically to prevent data loss
-        # The envelope has many fields (e.g. componentManufacturer), we keep everything from envelope and record
-        df_flat = df_exploded.select("record.*", "*").drop("records", "record")
+        # Select base metadata + nested record fields dynamically to prevent data loss.
+        # Some fields (e.g. circuitId) exist in BOTH the envelope and the record struct,
+        # so we must deduplicate: keep envelope columns as-is, then add only record-unique columns.
+        envelope_cols = [c for c in df_exploded.columns if c != "record"]
+        record_fields = df_exploded.select("record.*").columns
+        record_only_cols = [f for f in record_fields if f not in envelope_cols]
+        
+        select_exprs = [col(c) for c in envelope_cols] + [col(f"record.{c}").alias(c) for c in record_only_cols]
+        df_flat = df_exploded.select(*select_exprs)
         
         # Ensure timestamp is cast to long and derive date
         df_flat = df_flat.withColumn("timestamp", col("timestamp").cast("long"))
