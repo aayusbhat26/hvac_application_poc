@@ -18,7 +18,7 @@ def get_spark_session(app_name):
     
     if s3_access_key and s3_secret_key:
         builder = builder \
-            .config("spark.hadoop.fs.s3a.endpoint", "https://s3.hf.co/aayushbhat26") \
+            .config("spark.hadoop.fs.s3a.endpoint", "https://s3.hf.co") \
             .config("spark.hadoop.fs.s3a.access.key", s3_access_key) \
             .config("spark.hadoop.fs.s3a.secret.key", s3_secret_key) \
             .config("spark.hadoop.fs.s3a.path.style.access", "true") \
