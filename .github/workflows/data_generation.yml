@@ -96,8 +96,8 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          hf sync ./data/batch hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch
-          hf sync ./data/real_time hf://buckets/aayushbhat26/hvac_application_poc_bucket/real_time
+          hf sync ./data/batch hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch --exclude "*.crc"
+          hf sync ./data/real_time hf://buckets/aayushbhat26/hvac_application_poc_bucket/real_time --exclude "*.crc"
 
       - name: Update Watermark on Hugging Face
         if: success()

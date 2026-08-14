@@ -4,8 +4,7 @@ import json
 import argparse
 import subprocess
 from datetime import datetime, timedelta, timezone
-from huggingface_hub import hf_hub_download, HfApi
-from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, HfHubHTTPError
+from huggingface_hub import HfFileSystem
 
 WATERMARK_FILENAME = "watermark.json"
 LOCAL_WATERMARK_PATH = os.path.join("data", WATERMARK_FILENAME)
@@ -23,25 +22,17 @@ def _empty_watermark():
 
 def _download_watermark(bucket_id):
     """Try to download the watermark JSON from HF. Return dict or None."""
+    fs = HfFileSystem()
+    json_path = f"buckets/{bucket_id}/{WATERMARK_FILENAME}"
+    txt_path = f"buckets/{bucket_id}/watermark.txt"
+
     try:
-        path = hf_hub_download(
-            repo_id=bucket_id,
-            filename=WATERMARK_FILENAME,
-            repo_type="bucket",
-            force_download=True
-        )
-        with open(path, "r") as f:
-            return json.load(f)
-    except (EntryNotFoundError, RepositoryNotFoundError, HfHubHTTPError):
-        # Try legacy watermark.txt (old format, single-line date)
-        try:
-            path = hf_hub_download(
-                repo_id=bucket_id,
-                filename="watermark.txt",
-                repo_type="bucket",
-                force_download=True
-            )
-            with open(path, "r") as f:
+        if fs.exists(json_path):
+            with fs.open(json_path, "r") as f:
+                return json.load(f)
+        elif fs.exists(txt_path):
+            # Try legacy watermark.txt
+            with fs.open(txt_path, "r") as f:
                 date_str = f.readline().strip()
             if date_str:
                 print(f"Found legacy watermark.txt with date: {date_str}")
@@ -50,12 +41,9 @@ def _download_watermark(bucket_id):
                 wm["generated_dates"] = [date_str]
                 wm["run_history"] = [{"start": date_str, "end": date_str, "days": 1, "note": "migrated from legacy watermark.txt"}]
                 return wm
-        except Exception:
-            pass
-        return None
     except Exception as e:
         print(f"Warning: Unexpected error fetching watermark: {e}")
-        return None
+    return None
 
 
 def _scan_bucket_for_dates(bucket_id):
@@ -63,32 +51,31 @@ def _scan_bucket_for_dates(bucket_id):
     Scan the HF bucket to discover which dates actually have data uploaded.
     This is the safety net: even if the watermark was never updated, we can
     reconstruct the true state from the raw data directories on HF.
-    
-    Directory structure: batch/raw/location_XX/YYYY/month/dayN/
     """
     discovered_dates = set()
+    fs = HfFileSystem()
+    raw_base_path = f"buckets/{bucket_id}/batch/raw"
+
     try:
-        api = HfApi()
-        # List top-level items under batch/raw/ to find location dirs
-        entries = api.list_repo_tree(
-            repo_id=bucket_id,
-            path_in_repo="batch/raw",
-            repo_type="bucket",
-        )
-        location_dirs = [e.path for e in entries if e.path.startswith("batch/raw/location_")]
+        # Check if the base path exists
+        if not fs.exists(raw_base_path):
+            return []
+
+        # List location directories
+        entries = fs.ls(raw_base_path)
+        location_dirs = [e["name"] for e in entries if "location_" in os.path.basename(e["name"])]
 
         # For each location, list year dirs -> month dirs -> day dirs
-        # We only need one location to discover all dates
         if location_dirs:
             loc = location_dirs[0]
-            year_entries = api.list_repo_tree(repo_id=bucket_id, path_in_repo=loc, repo_type="bucket")
+            year_entries = fs.ls(loc)
             for year_entry in year_entries:
-                year_str = os.path.basename(year_entry.path)
+                year_str = os.path.basename(year_entry["name"])
                 if not year_str.isdigit():
                     continue
-                month_entries = api.list_repo_tree(repo_id=bucket_id, path_in_repo=year_entry.path, repo_type="bucket")
+                month_entries = fs.ls(year_entry["name"])
                 for month_entry in month_entries:
-                    month_name = os.path.basename(month_entry.path).lower()
+                    month_name = os.path.basename(month_entry["name"]).lower()
                     month_map = {
                         "january": 1, "february": 2, "march": 3, "april": 4,
                         "may": 5, "june": 6, "july": 7, "august": 8,
@@ -97,9 +84,9 @@ def _scan_bucket_for_dates(bucket_id):
                     month_num = month_map.get(month_name)
                     if month_num is None:
                         continue
-                    day_entries = api.list_repo_tree(repo_id=bucket_id, path_in_repo=month_entry.path, repo_type="bucket")
+                    day_entries = fs.ls(month_entry["name"])
                     for day_entry in day_entries:
-                        day_name = os.path.basename(day_entry.path)  # e.g., "day1"
+                        day_name = os.path.basename(day_entry["name"])
                         if day_name.startswith("day"):
                             try:
                                 day_num = int(day_name.replace("day", ""))
@@ -115,27 +102,14 @@ def _scan_bucket_for_dates(bucket_id):
 
 def _upload_watermark(bucket_id):
     """Upload the local watermark JSON to the HF bucket. Non-fatal on failure."""
+    fs = HfFileSystem()
+    dest_path = f"buckets/{bucket_id}/{WATERMARK_FILENAME}"
+    
     try:
-        result = subprocess.run(
-            ["hf", "upload", bucket_id,
-             LOCAL_WATERMARK_PATH, WATERMARK_FILENAME, "--repo-type", "bucket"],
-            capture_output=True, text=True, timeout=60
-        )
-        if result.returncode == 0:
-            print(f"Successfully uploaded {WATERMARK_FILENAME} to HF Bucket.")
-            return True
-        else:
-            print(f"hf CLI upload failed: {result.stderr.strip()}")
-            # Fallback to HfApi
-            api = HfApi()
-            api.upload_file(
-                path_or_fileobj=LOCAL_WATERMARK_PATH,
-                path_in_repo=WATERMARK_FILENAME,
-                repo_id=bucket_id,
-                repo_type="bucket"
-            )
-            print(f"Successfully uploaded {WATERMARK_FILENAME} via HfApi fallback.")
-            return True
+        # HfFileSystem's put handles uploading local files to HF efficiently
+        fs.put(LOCAL_WATERMARK_PATH, dest_path)
+        print(f"Successfully uploaded {WATERMARK_FILENAME} to HF Bucket.")
+        return True
     except Exception as e:
         print(f"WARNING: Failed to upload watermark to HF: {e}")
         print("The data was synced successfully, but the watermark was not updated.")
