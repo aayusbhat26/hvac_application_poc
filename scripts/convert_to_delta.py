@@ -26,7 +26,7 @@ def process_files(input_dir, output_dir):
             print(f"No location directories found in {input_dir}")
             return
             
-        df_raw = spark.read.json(location_dirs, multiLine=True)
+        df_raw = spark.read.option("recursiveFileLookup", "true").json(location_dirs, multiLine=True)
         
         # Explode the records array
         df_exploded = df_raw.select(
