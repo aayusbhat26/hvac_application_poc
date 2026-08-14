@@ -3,7 +3,7 @@ import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, to_date, lit
 from delta.tables import DeltaTable
-from delta import configure_spark_with_delta_pip
+from spark_utils import get_spark_session, ensure_dir, path_exists
 import re
 
 def camel_to_snake(name):
@@ -12,24 +12,16 @@ def camel_to_snake(name):
 
 def process_bronze_to_staging(input_dir, output_dir, start_date=None, end_date=None):
     components = ["compressor", "condenser", "evaporator", "expansion_valve"]
-    os.makedirs(output_dir, exist_ok=True)
+    ensure_dir(output_dir)
 
-    builder = SparkSession.builder \
-        .appName("HVAC_Bronze_to_Staging") \
-        .config("spark.driver.memory", "2g") \
-        .config("spark.executor.memory", "2g") \
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
-        
-    spark = configure_spark_with_delta_pip(builder).getOrCreate()
+    spark = get_spark_session("HVAC_Bronze_to_Staging")
         
     try:
         for component in components:
             bronze_path = os.path.join(input_dir, component)
             staging_path = os.path.join(output_dir, component)
             
-            if not os.path.exists(bronze_path) or not DeltaTable.isDeltaTable(spark, bronze_path):
+            if not path_exists(spark, bronze_path) or not DeltaTable.isDeltaTable(spark, bronze_path):
                 print(f"Skipping {component} - Bronze data not found.")
                 continue
                 

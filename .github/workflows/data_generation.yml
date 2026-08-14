@@ -39,11 +39,6 @@ jobs:
           mkdir -p data/batch/bronze
           mkdir -p data/real_time
 
-      - name: Sync Existing Data from Hugging Face
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          hf sync hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch ./data/batch --exclude "raw/*" || true
 
       - name: Check Watermark
         env:
@@ -65,45 +60,57 @@ jobs:
 
       - name: Convert Raw JSON to Delta Format (Bronze)
         if: success()
+        env:
+          HF_S3_ACCESS_KEY: ${{ secrets.HF_S3_ACCESS_KEY }}
+          HF_S3_SECRET_KEY: ${{ secrets.HF_S3_SECRET_KEY }}
         run: |
           python scripts/convert_to_delta.py \
             --input-dir data/batch/raw \
-            --output-dir data/batch/bronze
+            --output-dir s3a://buckets/aayushbhat26/hvac_application_poc_bucket/batch/bronze
 
       - name: Process Bronze to Staging
         if: success()
+        env:
+          HF_S3_ACCESS_KEY: ${{ secrets.HF_S3_ACCESS_KEY }}
+          HF_S3_SECRET_KEY: ${{ secrets.HF_S3_SECRET_KEY }}
         run: |
           python scripts/bronze_to_staging.py \
-            --input-dir data/batch/bronze \
-            --output-dir data/batch/staging \
+            --input-dir s3a://buckets/aayushbhat26/hvac_application_poc_bucket/batch/bronze \
+            --output-dir s3a://buckets/aayushbhat26/hvac_application_poc_bucket/batch/staging \
             --start-date $TARGET_DATE \
             --end-date $END_DATE
 
       - name: Process Staging to Silver
         if: success()
+        env:
+          HF_S3_ACCESS_KEY: ${{ secrets.HF_S3_ACCESS_KEY }}
+          HF_S3_SECRET_KEY: ${{ secrets.HF_S3_SECRET_KEY }}
         run: |
           python scripts/staging_to_silver.py \
-            --input-dir data/batch/staging \
-            --output-dir data/batch/silver \
+            --input-dir s3a://buckets/aayushbhat26/hvac_application_poc_bucket/batch/staging \
+            --output-dir s3a://buckets/aayushbhat26/hvac_application_poc_bucket/batch/silver \
             --start-date $TARGET_DATE \
             --end-date $END_DATE
 
       - name: Process Silver to Gold (Dimensions & Facts)
         if: success()
+        env:
+          HF_S3_ACCESS_KEY: ${{ secrets.HF_S3_ACCESS_KEY }}
+          HF_S3_SECRET_KEY: ${{ secrets.HF_S3_SECRET_KEY }}
         run: |
           python scripts/silver_to_gold.py \
-            --input-dir data/batch/silver \
-            --output-dir data/batch/gold \
+            --input-dir s3a://buckets/aayushbhat26/hvac_application_poc_bucket/batch/silver \
+            --output-dir s3a://buckets/aayushbhat26/hvac_application_poc_bucket/batch/gold \
             --start-date $TARGET_DATE \
             --end-date $END_DATE
 
-      - name: Upload Data to Hugging Face Bucket
+      - name: Upload Raw Data and Real Time to Hugging Face
         if: success()
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          hf sync ./data/batch hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch --exclude "*.crc"
-          hf sync ./data/real_time hf://buckets/aayushbhat26/hvac_application_poc_bucket/real_time --exclude "*.crc"
+          hf sync ./data/batch/raw hf://buckets/aayushbhat26/hvac_application_poc_bucket/batch/raw
+          hf sync ./data/real_time hf://buckets/aayushbhat26/hvac_application_poc_bucket/real_time
 
       - name: Update Watermark on Hugging Face
         if: success()

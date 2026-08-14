@@ -5,7 +5,7 @@ from pyspark.sql import SparkSession, Window
 from pyspark.sql.functions import col, lit, when, row_number, concat_ws, current_timestamp, to_date
 from pyspark.sql.types import DoubleType
 from delta.tables import DeltaTable
-from delta import configure_spark_with_delta_pip
+from spark_utils import get_spark_session, ensure_dir, path_exists
 
 QUALITY_RULES = {
     "compressor": {
@@ -167,20 +167,12 @@ def apply_quality_rules(df, rules):
 
 def process_staging_to_silver(input_dir, output_dir, start_date=None, end_date=None):
     components = ["compressor", "condenser", "evaporator", "expansion_valve"]
-    os.makedirs(output_dir, exist_ok=True)
+    ensure_dir(output_dir)
     
     dlq_dir = os.path.join(output_dir, "dlq")
-    os.makedirs(dlq_dir, exist_ok=True)
+    ensure_dir(dlq_dir)
 
-    builder = SparkSession.builder \
-        .appName("HVAC_Staging_to_Silver") \
-        .config("spark.driver.memory", "2g") \
-        .config("spark.executor.memory", "2g") \
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
-        
-    spark = configure_spark_with_delta_pip(builder).getOrCreate()
+    spark = get_spark_session("HVAC_Staging_to_Silver")
         
     try:
         for component in components:
@@ -188,7 +180,7 @@ def process_staging_to_silver(input_dir, output_dir, start_date=None, end_date=N
             silver_path = os.path.join(output_dir, component)
             dlq_path = os.path.join(dlq_dir, component)
             
-            if not os.path.exists(staging_path) or not DeltaTable.isDeltaTable(spark, staging_path):
+            if not path_exists(spark, staging_path) or not DeltaTable.isDeltaTable(spark, staging_path):
                 print(f"Skipping {component} - Staging data not found.")
                 continue
 

@@ -4,19 +4,11 @@ import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, explode, from_unixtime, to_date, lit
 from delta.tables import DeltaTable
-from delta import configure_spark_with_delta_pip
+from spark_utils import get_spark_session, ensure_dir
 
 def process_files(input_dir, output_dir):
     # Initialize Spark
-    builder = SparkSession.builder \
-        .appName("HVAC_Raw_to_Bronze") \
-        .config("spark.driver.memory", "2g") \
-        .config("spark.executor.memory", "2g") \
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
-
-    spark = configure_spark_with_delta_pip(builder).getOrCreate()
+    spark = get_spark_session("HVAC_Raw_to_Bronze")
 
     try:
         # Read JSON files natively with Spark
@@ -51,7 +43,7 @@ def process_files(input_dir, output_dir):
         df_flat = df_flat.withColumn("date", to_date(from_unixtime(col("timestamp") / 1000)))
         
         components = ["compressor", "condenser", "evaporator", "expansion_valve"]
-        os.makedirs(output_dir, exist_ok=True)
+        ensure_dir(output_dir)
         
         for comp in components:
             comp_df = df_flat.filter(col("componentType") == comp)
