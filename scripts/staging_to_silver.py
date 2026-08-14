@@ -5,6 +5,7 @@ from pyspark.sql import SparkSession, Window
 from pyspark.sql.functions import col, lit, when, row_number, concat_ws, current_timestamp, to_date
 from pyspark.sql.types import DoubleType
 from delta.tables import DeltaTable
+from delta import configure_spark_with_delta_pip
 
 QUALITY_RULES = {
     "compressor": {
@@ -171,14 +172,15 @@ def process_staging_to_silver(input_dir, output_dir, start_date=None, end_date=N
     dlq_dir = os.path.join(output_dir, "dlq")
     os.makedirs(dlq_dir, exist_ok=True)
 
-    spark = SparkSession.builder \
+    builder = SparkSession.builder \
         .appName("HVAC_Staging_to_Silver") \
         .config("spark.driver.memory", "2g") \
         .config("spark.executor.memory", "2g") \
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true") \
-        .getOrCreate()
+        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
+        
+    spark = configure_spark_with_delta_pip(builder).getOrCreate()
         
     try:
         for component in components:

@@ -9,6 +9,7 @@ from pyspark.sql.functions import (
     struct
 )
 from delta.tables import DeltaTable
+from delta import configure_spark_with_delta_pip
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 def cfg_path(*parts):
     return os.path.join(BASE_DIR, '..', *parts)
@@ -29,14 +30,15 @@ def safe_merge(spark, target_path, df, merge_condition, partition_by=None):
 
 def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None):
     os.makedirs(output_dir, exist_ok=True)
-    spark = SparkSession.builder \
+    builder = SparkSession.builder \
         .appName("HVAC_Silver_to_Gold") \
         .config("spark.driver.memory", "2g") \
         .config("spark.executor.memory", "2g") \
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true") \
-        .getOrCreate()
+        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
+
+    spark = configure_spark_with_delta_pip(builder).getOrCreate()
         
     try:
         # 1. GENERATE STATIC DIMENSION TABLES

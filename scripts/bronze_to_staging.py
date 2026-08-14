@@ -3,6 +3,7 @@ import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, to_date, lit
 from delta.tables import DeltaTable
+from delta import configure_spark_with_delta_pip
 import re
 
 def camel_to_snake(name):
@@ -13,14 +14,15 @@ def process_bronze_to_staging(input_dir, output_dir, start_date=None, end_date=N
     components = ["compressor", "condenser", "evaporator", "expansion_valve"]
     os.makedirs(output_dir, exist_ok=True)
 
-    spark = SparkSession.builder \
+    builder = SparkSession.builder \
         .appName("HVAC_Bronze_to_Staging") \
         .config("spark.driver.memory", "2g") \
         .config("spark.executor.memory", "2g") \
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true") \
-        .getOrCreate()
+        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
+        
+    spark = configure_spark_with_delta_pip(builder).getOrCreate()
         
     try:
         for component in components:
