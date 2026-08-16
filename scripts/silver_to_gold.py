@@ -181,6 +181,17 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
         safe_merge(spark, os.path.join(output_dir, "fact_component_health_hourly"), health_hourly, 
             "t.date = s.date AND t.hour = s.hour AND t.component_id = s.component_id", partition_by=["date"])
 
+        # Normalize power fields so components don't get filtered out
+        if "pump_power_consumption_kw" in combined_df.columns:
+            combined_df = combined_df.withColumn("power_consumption_kw",
+                when(col("component_type") == "evaporator", col("pump_power_consumption_kw"))
+                .otherwise(col("power_consumption_kw")))
+                
+        if "power_consumption_w" in combined_df.columns:
+            combined_df = combined_df.withColumn("power_consumption_kw",
+                when(col("component_type") == "expansion_valve", col("power_consumption_w") / 1000.0)
+                .otherwise(col("power_consumption_kw")))
+
         # Deriving Interval Dynamically (Bug C1)
         # We calculate the interval in hours by dividing duration by number of records
         energy_df = combined_df.filter(col("power_consumption_kw").isNotNull())
