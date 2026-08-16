@@ -323,6 +323,48 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
         
         safe_merge(spark, os.path.join(output_dir, "KPI_Rollups/kpi_fleet_summary_daily"), fleet_summary, "t.date = s.date", partition_by=["date"])
 
+        # 6c. kpi_location_energy_daily
+        loc_energy_df = energy_daily.groupBy("date", "location_id").pivot("component_type").agg(_sum("daily_energy_kwh")).fillna(0.0)
+        
+        for comp in ["compressor", "condenser", "evaporator", "expansion_valve"]:
+            if comp not in loc_energy_df.columns:
+                loc_energy_df = loc_energy_df.withColumn(comp, lit(0.0))
+                
+        loc_energy_df = loc_energy_df.withColumnRenamed("compressor", "compressor_power_kwh") \
+                                     .withColumnRenamed("condenser", "condenser_fan_power_kwh") \
+                                     .withColumnRenamed("evaporator", "pump_power_kwh") \
+                                     .withColumnRenamed("expansion_valve", "valve_power_kwh")
+                                     
+        loc_energy_df = loc_energy_df.withColumn("total_power_consumption_kwh", 
+            col("compressor_power_kwh") + col("condenser_fan_power_kwh") + col("pump_power_kwh") + col("valve_power_kwh")
+        )
+        safe_merge(spark, os.path.join(output_dir, "KPI_Rollups/kpi_location_energy_daily"), loc_energy_df, "t.date = s.date AND t.location_id = s.location_id", partition_by=["date"])
+
+        # 6d. kpi_location_performance_summary
+        loc_health = machine_health.groupBy("date", "location_id").agg(
+            _mean("machine_health_score").alias("avg_health_score"),
+            countDistinct("hvac_machine_id").alias("machines_count")
+        )
+        
+        loc_faults = alerts_daily.groupBy("date", "location_id").agg(
+            _sum("unique_fault_codes").alias("total_fault_events")
+        )
+        
+        if "compressor" in silver_dfs:
+            loc_cop = perf_daily.groupBy("date", "location_id").agg(
+                _mean("avg_cop").alias("avg_location_cop")
+            )
+        else:
+            loc_cop = None
+            
+        kpi_loc_perf = loc_health.join(loc_faults, on=["date", "location_id"], how="left").fillna(0)
+        
+        if loc_cop is not None:
+            kpi_loc_perf = kpi_loc_perf.join(loc_cop, on=["date", "location_id"], how="left").fillna(0)
+        else:
+            kpi_loc_perf = kpi_loc_perf.withColumn("avg_location_cop", lit(0.0))
+            
+        safe_merge(spark, os.path.join(output_dir, "KPI_Rollups/kpi_location_performance_summary"), kpi_loc_perf, "t.date = s.date AND t.location_id = s.location_id", partition_by=["date"])
         combined_df.unpersist()
         print("Successfully generated all Gold tables.")
 
