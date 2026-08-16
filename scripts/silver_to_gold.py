@@ -159,8 +159,11 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
             count("timestamp").alias("total_readings"),
             _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("critical_readings"),
             _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("warning_readings"),
-            _sum("is_new_event").alias("critical_event_count")
+            _sum("is_new_event").alias("critical_event_count"),
+            _max("health_active_fault_code").alias("critical_reading_code")
         )
+        health_daily = health_daily.withColumn("critical_reading_code",
+            when(col("critical_reading_code").isNull(), 0).otherwise(col("critical_reading_code")).cast("int"))
         health_daily = health_daily.withColumn("health_score_pct", 
             when(col("total_readings") > 0, 100.0 - (col("critical_readings") / col("total_readings") * 100.0) - (col("warning_readings") / col("total_readings") * 50.0)).otherwise(100.0)
         )
@@ -172,8 +175,11 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
         health_hourly = combined_df.groupBy("date", "hour", "location_id", "hvac_machine_id", "component_id", "component_type").agg(
             count("timestamp").alias("total_readings"),
             _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("critical_readings"),
-            _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("warning_readings")
+            _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("warning_readings"),
+            _max("health_active_fault_code").alias("critical_reading_code")
         )
+        health_hourly = health_hourly.withColumn("critical_reading_code",
+            when(col("critical_reading_code").isNull(), 0).otherwise(col("critical_reading_code")).cast("int"))
         health_hourly = health_hourly.withColumn("health_score_pct", 
             when(col("total_readings") > 0, 100.0 - (col("critical_readings") / col("total_readings") * 100.0) - (col("warning_readings") / col("total_readings") * 50.0)).otherwise(100.0)
         )
