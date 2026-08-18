@@ -93,6 +93,22 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
                 if not df.rdd.isEmpty():
                     df = df.withColumn("component_type", lit(comp))
                     df = df.withColumn("hour", hour(from_unixtime(col("timestamp") / 1000)))
+                    
+                    # Cast string numeric columns to double before any aggregations
+                    numeric_fields_to_cast = [
+                        "run_hours", "start_stop_count", "cop", "eer", "power_consumption_kw", 
+                        "vibration_mm_s", "suction_temperature_c", "discharge_temperature_c", 
+                        "suction_pressure_kpa", "discharge_pressure_kpa", "water_inlet_temperature_c", 
+                        "water_outlet_temperature_c", "fan_speed_rpm", "heat_rejection_efficiency_pct", 
+                        "approach_temperature_c", "pump_power_consumption_kw", "cooling_capacity_tr", 
+                        "entering_chilled_water_temperature_c", "leaving_chilled_water_temperature_c", 
+                        "heat_transfer_efficiency_pct", "power_consumption_w", "valve_opening_pct", 
+                        "superheat_c", "subcooling_c", "refrigerant_flow_rate_kg_min", "run_status"
+                    ]
+                    for c in numeric_fields_to_cast:
+                        if c in df.columns:
+                            df = df.withColumn(c, col(c).cast("double"))
+                            
                     silver_dfs[comp] = df
 
         if not silver_dfs:
@@ -233,7 +249,7 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
         alerts_daily = combined_df.groupBy("date", "location_id", "hvac_machine_id").agg(
             _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("total_critical_alerts"),
             _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("total_warning_alerts"),
-            countDistinct("health_active_fault_code").alias("unique_fault_codes")
+            countDistinct(when((col("health_active_fault_code").isNotNull()) & (col("health_active_fault_code") > 0) & (~col("health_active_fault_code").isNaN()), col("health_active_fault_code"))).alias("unique_fault_codes")
         )
         safe_merge(spark, os.path.join(output_dir, "fact_machine_alerts_daily"), alerts_daily, 
             "t.date = s.date AND t.hvac_machine_id = s.hvac_machine_id", partition_by=["date"])
@@ -241,7 +257,7 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
         alerts_hourly = combined_df.groupBy("date", "hour", "location_id", "hvac_machine_id").agg(
             _sum(when(col("health_status") == "Critical", 1).otherwise(0)).alias("total_critical_alerts"),
             _sum(when(col("health_status") == "Warning", 1).otherwise(0)).alias("total_warning_alerts"),
-            countDistinct("health_active_fault_code").alias("unique_fault_codes")
+            countDistinct(when((col("health_active_fault_code").isNotNull()) & (col("health_active_fault_code") > 0) & (~col("health_active_fault_code").isNaN()), col("health_active_fault_code"))).alias("unique_fault_codes")
         )
         safe_merge(spark, os.path.join(output_dir, "fact_machine_alerts_hourly"), alerts_hourly, 
             "t.date = s.date AND t.hour = s.hour AND t.hvac_machine_id = s.hvac_machine_id", partition_by=["date"])
@@ -249,11 +265,18 @@ def process_silver_to_gold(input_dir, output_dir, start_date=None, end_date=None
         # Performance metrics
         if "compressor" in silver_dfs:
             comp_df = silver_dfs["compressor"]
-            perf_daily = comp_df.groupBy("date", "location_id", "hvac_machine_id").agg(
-                _max("run_hours").alias("max_run_hours"),
-                _max("start_stop_count").alias("max_start_stops"),
-                _mean("cop").alias("avg_cop"),
-                _mean("eer").alias("avg_eer")
+            comp_daily_delta = comp_df.groupBy("date", "location_id", "hvac_machine_id", "component_id").agg(
+                (_max("run_hours") - _min("run_hours")).alias("comp_run_hours"),
+                (_max("start_stop_count") - _min("start_stop_count")).alias("comp_start_stops"),
+                _mean("cop").alias("comp_cop"),
+                _mean("eer").alias("comp_eer")
+            )
+            
+            perf_daily = comp_daily_delta.groupBy("date", "location_id", "hvac_machine_id").agg(
+                _max("comp_run_hours").alias("max_run_hours"),
+                _max("comp_start_stops").alias("max_start_stops"),
+                _mean("comp_cop").alias("avg_cop"),
+                _mean("comp_eer").alias("avg_eer")
             )
             safe_merge(spark, os.path.join(output_dir, "fact_machine_performance_daily"), perf_daily, 
                 "t.date = s.date AND t.hvac_machine_id = s.hvac_machine_id", partition_by=["date"])
